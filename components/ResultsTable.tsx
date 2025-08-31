@@ -6,12 +6,12 @@ type SortKey =
 type Scope = 'all' | 'compatible' | 'common'
 
 const SCM_MEANINGS: Record<string, string> = {
-  S: 'GGBS / Slag: improves chloride resistance & lowers CO₂',
-  V: 'Fly ash: moderates heat; slower early strength; CO₂ cut',
-  P: 'Natural pozzolana: long-term strength; CO₂ cut',
-  LL: 'High-purity limestone: workability & modest CO₂ cut',
-  CC: 'Calcined clay: strong CO₂ cut when blended with limestone',
-  OPC: 'Ordinary Portland cement (no SCMs)',
+  S: 'GGBS / Slag: improves chloride resistance & lowers CO₂.',
+  V: 'Fly ash: moderates heat; slower early strength; CO₂ cut.',
+  P: 'Natural pozzolana: long-term strength; CO₂ cut.',
+  LL: 'High-purity limestone: workability & modest CO₂ cut.',
+  CC: 'Calcined clay: strong CO₂ cut when blended with limestone.',
+  OPC: 'Ordinary Portland cement (no SCMs).',
 }
 
 interface Props {
@@ -45,11 +45,11 @@ export default function ResultsTable({
   dosageMode, perCementDosage, onPerCementDosageChange
 }: Props) {
 
-  // Find the single worst non-baseline row (closest to 0% reduction; can be negative).
+  // pick a single worst (closest to baseline) among non-baseline rows
   const worstNonBaselineId = useMemo(() => {
     const pool = rows.filter(r => r.cement.id !== baselineId)
     if (!pool.length) return undefined
-    // Smaller reductionPct is worse (<= 0 is even worse than small positive).
+    // smaller reduction% is worse (negatives are even worse)
     const worst = pool.reduce((m, r) => (r.gwpReductionPct < m.gwpReductionPct ? r : m), pool[0])
     return worst.cement.id
   }, [rows, baselineId])
@@ -78,17 +78,42 @@ export default function ResultsTable({
         <table className="table">
           <thead>
             <tr>
-              <Th k="cement" label="Cement" sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}/>
-              <Th k="strength" label="Strength" sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}/>
-              <Th k="clinker" label="Clinker" sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}/>
-              <Th k="ef" label="EF (kgCO₂/kg)" sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}/>
-              <Th k="dosage" label="Dosage (kg/m³)" sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}/>
-              <Th k="a1a3" label="CO₂e A1–A3 (kg/m³)" sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}/>
-              <Th k="a4" label="A4 (kg)" sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}/>
-              <Th k="total" label="Total element (kg)" sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}/>
-              <Th k="reduction" label="Δ vs baseline" sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}/>
+              <Th k="cement" label="Cement" sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} />
+              <Th
+                k="strength" label="Strength" sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}
+                info="EN 197 strength class (e.g., 32.5N, 42.5R)."
+              />
+              <Th
+                k="clinker" label="Clinker" sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}
+                info="Estimated clinker fraction of the cement."
+              />
+              <Th
+                k="ef" label="EF (kgCO₂/kg)" sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}
+                info="Emission factor of the binder (A1–A3), kg CO₂ per kg of cement."
+              />
+              <Th
+                k="dosage" label="Dosage (kg/m³)" sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}
+                info="Binder mass per cubic metre of concrete."
+              />
+              <Th
+                k="a1a3" label="CO₂e A1–A3 (kg/m³)" sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}
+                info="Per-m³ emissions from materials & manufacturing, i.e. dosage × EF."
+              />
+              <Th
+                k="a4" label="A4 (kg)" sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}
+                info="Transport emissions for your distance × volume (if enabled)."
+              />
+              <Th
+                k="total" label="Total element (kg)" sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}
+                info="A1–A3 × element volume + A4 transport."
+              />
+              <Th
+                k="reduction" label="Δ vs baseline" sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}
+                info="Percent improvement vs the worst OPC baseline (bigger is better)."
+              />
             </tr>
           </thead>
+
           <tbody>
             {rows.map(r => {
               const isSel = selectedId === r.cement.id
@@ -97,11 +122,7 @@ export default function ResultsTable({
               const isWorst = r.cement.id === worstNonBaselineId
               const dim = !r.exposureCompatible
 
-              // Row background logic:
-              // - Baseline: strong red wash
-              // - Worst (non-baseline): light red wash
-              // - Best: light green wash
-              // - Others: neutral
+              // Row tints: baseline strong red, worst light red, best light green, others neutral
               let rowStyle: React.CSSProperties = {}
               if (isBase) {
                 rowStyle = { boxShadow: 'inset 0 0 0 9999px rgba(239,68,68,0.16)', borderColor: '#fecaca' }
@@ -131,27 +152,17 @@ export default function ResultsTable({
                     style={{ borderLeft: `6px solid ${isBest ? '#10b981' : (isBase ? '#ef4444' : '#e5e7eb')}`, ...rowStyle }}>
                   <td>
                     <div className="cell-title">
-                      <div className="title ihelp-container">
-                        {r.cement.cement_type}
-                        {/* Info icon on hover */}
-                        <span className="tooltip-wrapper ihelp" aria-label="What do these columns mean?">
-                          <span className="tooltip-icon">i</span>
-                          <span className="tooltip-box tooltip-right">
-                            <b>EF</b>: CO₂ per kg of binder (A1–A3).<br/>
-                            <b>Dosage</b>: Binder kg per m³ of concrete.<br/>
-                            <b>A1–A3</b>: CO₂ per m³ from materials & manufacturing.<br/>
-                            <b>A4</b>: Transport CO₂ for your distance/volume.<br/>
-                            <b>Total</b>: A1–A3 × volume + A4.<br/>
-                            <b>Δ vs baseline</b>: % better than worst OPC baseline.
-                          </span>
-                        </span>
-                      </div>
+                      <div className="title">{r.cement.cement_type}</div>
                       <div className="subtitle">
-                        {scmBadge.map((t, i) => (
-                          <span key={i} className="tag" title={SCM_MEANINGS[t] ?? t} aria-label={SCM_MEANINGS[t] ?? t}>
-                            {t}
-                          </span>
-                        ))}
+                        {scmBadge.map((t, i) => {
+                          const meaning = SCM_MEANINGS[t] ?? t
+                          return (
+                            <span key={i} className="tag tooltip-wrapper" aria-label={meaning}>
+                              <span>{t}</span>
+                              <span className="tooltip-box tooltip-right">{meaning}</span>
+                            </span>
+                          )
+                        })}
                       </div>
                     </div>
                   </td>
@@ -198,24 +209,33 @@ export default function ResultsTable({
   )
 }
 
+/* ---------- header cell with sort + info ---------- */
 function Th({
-  k, label, sortKey, sortDir, onSortChange
+  k, label, sortKey, sortDir, onSortChange, info
 }: {
   k: SortKey
   label: string
   sortKey: SortKey
   sortDir: 'asc' | 'desc'
   onSortChange: (k: SortKey) => void
+  info?: string
 }) {
   const active = sortKey === k
   return (
-    <th
-      onClick={() => onSortChange(k)}
-      className={active ? `th-sort th-${sortDir}` : 'th-sort'}
-      role="button"
-      tabIndex={0}
-    >
-      {label}
+    <th className={active ? `th-sort th-${sortDir}` : 'th-sort'} role="button" tabIndex={0}
+        onClick={() => onSortChange(k)}>
+      <span className="th-label">{label}</span>
+      {info && (
+        <span
+          className="tooltip-wrapper th-help"
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+          aria-label={info}
+        >
+          <span className="tooltip-icon">i</span>
+          <span className="tooltip-box tooltip-right">{info}</span>
+        </span>
+      )}
       <span className="sort-caret">{active ? (sortDir === 'asc' ? '▲' : '▼') : ''}</span>
     </th>
   )
