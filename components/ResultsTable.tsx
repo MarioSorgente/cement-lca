@@ -98,7 +98,7 @@ export default function ResultsTable({
               <Th k="clinker">Clinker</Th>
               <th>SCMs</th>
               <Th k="ef">EF (kgCO₂/kg)</Th>
-              <Th k="reduction">vs baseline (lower is better)</Th>
+              <Th k="reduction">CO₂ reduction vs baseline</Th>
               <Th k="dosage">Dosage (kg/m³)</Th>
               <Th k="a1a3">CO₂e A1–A3 (kg/m³)</Th>
               <Th k="a4">A4 (kg)</Th>
