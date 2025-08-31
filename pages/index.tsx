@@ -7,6 +7,11 @@ import { getDefaultDosage } from '../lib/dosage'
 import { toResultRows } from '../lib/calc'
 import { tagsForCement } from '../lib/tags'
 import { downloadCSV } from '../lib/download'
+// If you chose Option B earlier, import data instead of fetch:
+// import cementsData from '../data/cements.json'
+
+type SortKey = 'cement'|'strength'|'clinker'|'ef'|'dosage'|'a1a3'|'a4'|'total'
+type SortDir = 'asc'|'desc'
 
 export default function Home() {
   const [cements, setCements] = useState<Cement[]>([])
@@ -20,15 +25,21 @@ export default function Home() {
     includeA4: true,
     dosageMode: 'global',
     globalDosage: getDefaultDosage('C30/37'),
-    filters: {
-      OPC: true, Slag: true, FlyAsh: true, Pozzolana: true,
-      Limestone: true, CalcinedClay: true, Composite: true
-    }
+    filters: { OPC: true, Slag: true, FlyAsh: true, Pozzolana: true, Limestone: true, CalcinedClay: true, Composite: true }
   })
 
-  useEffect(() => {
-    fetch('/data/cements.json').then(r => r.json()).then(setCements)
-  }, [])
+  // Load data (use fetch OR import—keep one)
+  useEffect(() => { fetch('/data/cements.json').then(r => r.json()).then(setCements) }, [])
+  // const [cements] = useState<Cement[]>(cementsData as Cement[])
+
+  // Sort controls
+  const [sortKey, setSortKey] = useState<SortKey>('total')
+  const [sortDir, setSortDir]   = useState<SortDir>('asc')
+
+  const handleSortChange = (key: SortKey) => {
+    if (key === sortKey) setSortDir(prev => prev === 'asc' ? 'desc' : 'asc')
+    else { setSortKey(key); setSortDir('asc') }
+  }
 
   // Filter by tag chips
   const visibleCements = useMemo(() => {
@@ -45,22 +56,39 @@ export default function Home() {
     })
   }, [cements, state.filters])
 
-  // Compute comparison rows (sorted ascending by total)
-  const rows: ResultRow[] = useMemo(() => {
+  // Compute rows
+  const rowsBase: ResultRow[] = useMemo(() => {
     return toResultRows(visibleCements, {
       exposureClass: state.exposureClass,
       volumeM3: state.volumeM3,
       distanceKm: state.distanceKm,
       includeA4: state.includeA4,
-      dosageFor: (c) =>
-        state.dosageMode === 'global'
-          ? state.globalDosage
-          : (dosageOverrides[c.id] ?? c.default_dosage_kg_per_m3),
+      dosageFor: (c) => state.dosageMode === 'global'
+        ? state.globalDosage
+        : (dosageOverrides[c.id] ?? c.default_dosage_kg_per_m3),
       tagsFor: (c) => tagsForCement(c)
-    }).sort((a, b) => a.totalElement - b.totalElement)
+    })
   }, [visibleCements, state, dosageOverrides])
 
-  // Identify best (lowest total) and OPC baseline (worst among OPC-only rows)
+  // Sorting
+  const rows = useMemo(() => {
+    const factor = sortDir === 'asc' ? 1 : -1
+    const val = (r: ResultRow) => {
+      switch (sortKey) {
+        case 'cement':   return r.cement.cement_type
+        case 'strength': return r.cement.strength_class
+        case 'clinker':  return r.cement.clinker_fraction
+        case 'ef':       return r.cement.co2e_per_kg_binder_A1A3
+        case 'dosage':   return r.dosageUsed
+        case 'a1a3':     return r.co2ePerM3_A1A3
+        case 'a4':       return r.a4Transport
+        case 'total':    return r.totalElement
+      }
+    }
+    return [...rowsBase].sort((a,b) => (val(a) > val(b) ? 1 : val(a) < val(b) ? -1 : 0) * factor)
+  }, [rowsBase, sortKey, sortDir])
+
+  // Best + baseline IDs (computed from sorted rows)
   const bestId = rows[0]?.cement.id
   const opcBaselineId = useMemo(() => {
     const opcRows = rows.filter(r => r.cement.scms.length === 0)
@@ -94,20 +122,25 @@ export default function Home() {
         </div>
       </div>
 
-      <Inputs state={state} setState={setState} />
+      {/* 1) TABLE directly under filters */}
+      <ResultsTable
+        rows={rows}
+        state={state}
+        dosageOverrides={dosageOverrides}
+        setDosageOverride={setDosageOverride}
+        onDownload={() => downloadCSV(rows, state)}
+        bestId={bestId}
+        opcBaselineId={opcBaselineId}
+        sortKey={sortKey}
+        sortDir={sortDir}
+        onSortChange={handleSortChange}
+      />
 
-      <section id="results" className="grid grid-2" style={{ alignItems: 'start' }}>
-        <ResultsTable
-          rows={rows}
-          state={state}
-          dosageOverrides={dosageOverrides}
-          setDosageOverride={setDosageOverride}
-          onDownload={() => downloadCSV(rows, state)}
-          bestId={bestId}
-          opcBaselineId={opcBaselineId}
-        />
-        <BarChart rows={rows} bestId={bestId} opcBaselineId={opcBaselineId} />
-      </section>
+      {/* 2) Chart */}
+      <BarChart rows={rows} bestId={bestId} opcBaselineId={opcBaselineId} />
+
+      {/* 3) Inputs below for refinement */}
+      <Inputs state={state} setState={setState} />
 
       <footer className="footer">
         © {new Date().getFullYear()} Cement LCA · Educational only · Use verified EPDs for projects.
