@@ -7,11 +7,10 @@ import { getDefaultDosage } from '../lib/dosage'
 import { toResultRows } from '../lib/calc'
 import { tagsForCement } from '../lib/tags'
 import { downloadCSV } from '../lib/download'
-// If you prefer import over fetch, uncomment and use the second line below
-// import cementsData from '../data/cements.json'
 
 type SortKey = 'cement'|'strength'|'clinker'|'ef'|'dosage'|'a1a3'|'a4'|'total'
 type SortDir = 'asc'|'desc'
+type PageSize = number | 'all'
 
 export default function Home() {
   const [cements, setCements] = useState<Cement[]>([])
@@ -22,7 +21,7 @@ export default function Home() {
   const [sortDir, setSortDir]   = useState<SortDir>('asc')
   const [search, setSearch] = useState('')
   const [hideIncompatible, setHideIncompatible] = useState(false)
-  const [pageSize, setPageSize] = useState(10)
+  const [pageSize, setPageSize] = useState<PageSize>('all') // Default = show ALL rows (no pagination)
   const [page, setPage] = useState(1)
 
   const [state, setState] = useState<InputsState>({
@@ -36,16 +35,14 @@ export default function Home() {
     filters: { OPC: true, Slag: true, FlyAsh: true, Pozzolana: true, Limestone: true, CalcinedClay: true, Composite: true }
   })
 
-  // Load data (choose one)
   useEffect(() => { fetch('/data/cements.json').then(r => r.json()).then(setCements) }, [])
-  // const [cements] = useState<Cement[]>(cementsData as Cement[])
 
   const handleSortChange = (key: SortKey) => {
     if (key === sortKey) setSortDir(prev => prev === 'asc' ? 'desc' : 'asc')
     else { setSortKey(key); setSortDir('asc') }
   }
 
-  // 1) Tag filters
+  // Tag filters
   const tagFiltered = useMemo(() => {
     return cements.filter(c => {
       const tags = new Set(tagsForCement(c))
@@ -60,7 +57,7 @@ export default function Home() {
     })
   }, [cements, state.filters])
 
-  // 2) Compute rows from current design inputs
+  // Compute rows from design inputs
   const rowsBase: ResultRow[] = useMemo(() => {
     return toResultRows(tagFiltered, {
       exposureClass: state.exposureClass,
@@ -74,7 +71,7 @@ export default function Home() {
     })
   }, [tagFiltered, state, dosageOverrides])
 
-  // 3) Search + hide incompatible
+  // Search + hide incompatible
   const searched = useMemo(() => {
     const q = search.trim().toLowerCase()
     return rowsBase.filter(r => {
@@ -85,7 +82,7 @@ export default function Home() {
     })
   }, [rowsBase, search, hideIncompatible])
 
-  // 4) Sorting
+  // Sorting
   const sorted = useMemo(() => {
     const factor = sortDir === 'asc' ? 1 : -1
     const val = (r: ResultRow) => {
@@ -103,15 +100,16 @@ export default function Home() {
     return [...searched].sort((a,b) => (val(a) > val(b) ? 1 : val(a) < val(b) ? -1 : 0) * factor)
   }, [searched, sortKey, sortDir])
 
-  // 5) Pagination
+  // Pagination (conditional)
   const totalRows = sorted.length
-  const totalPages = Math.max(1, Math.ceil(totalRows / pageSize))
-  const pageSafe = Math.min(page, totalPages)
-  const start = (pageSafe - 1) * pageSize
-  const end = start + pageSize
+  const usingPagination = pageSize !== 'all'
+  const totalPages = usingPagination ? Math.max(1, Math.ceil(totalRows / (pageSize as number))) : 1
+  const pageSafe = usingPagination ? Math.min(page, totalPages) : 1
+  const start = usingPagination ? (pageSafe - 1) * (pageSize as number) : 0
+  const end = usingPagination ? start + (pageSize as number) : totalRows
   const pageRows = sorted.slice(start, end)
 
-  // Best + baseline IDs based on the **sorted (full) set**
+  // IDs for highlight
   const bestId = sorted[0]?.cement.id
   const opcBaselineId = useMemo(() => {
     const opcRows = sorted.filter(r => r.cement.scms.length === 0)
@@ -124,12 +122,16 @@ export default function Home() {
   const setDosageOverride = (id: string, v: number) =>
     setDosageOverrides(prev => ({ ...prev, [id]: v }))
 
-  // Ensure page resets on filters/search
+  // Reset page when view changes
   useEffect(() => { setPage(1) }, [search, hideIncompatible, pageSize, sortKey, sortDir, state])
+
+  // Banner text for chart/table view
+  const bannerText = usingPagination
+    ? `Showing: Page ${pageSafe} of ${totalPages} · ${(pageSize as number)} rows/page`
+    : `Showing: All rows (${totalRows})`
 
   return (
     <main className="container">
-      {/* Header + tag chips */}
       <div className="header">
         <h1 className="h1">Concrete LCA Comparator</h1>
         <div className="filters">
@@ -152,7 +154,7 @@ export default function Home() {
       {/* Design Inputs ABOVE Comparison */}
       <Inputs state={state} setState={setState} />
 
-      {/* Comparison with controls */}
+      {/* Comparison */}
       <ResultsTable
         rows={pageRows}
         state={state}
@@ -164,7 +166,6 @@ export default function Home() {
         sortKey={sortKey}
         sortDir={sortDir}
         onSortChange={(k) => handleSortChange(k)}
-        // new controls
         search={search}
         onSearch={setSearch}
         hideIncompatible={hideIncompatible}
@@ -173,11 +174,13 @@ export default function Home() {
         totalPages={totalPages}
         onPageChange={setPage}
         pageSize={pageSize}
-        onPageSizeChange={(n) => setPageSize(n)}
+        onPageSizeChange={setPageSize}
         totalCount={totalRows}
+        usingPagination={usingPagination}
       />
 
-      {/* Chart shows the same rows as the table page */}
+      {/* Banner + Chart */}
+      <div className="view-banner">{bannerText}</div>
       <BarChart rows={pageRows} bestId={bestId} opcBaselineId={opcBaselineId} />
 
       <footer className="footer">
