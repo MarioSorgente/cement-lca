@@ -20,7 +20,7 @@ export default function BarChart({
 
   // layout
   const max = Math.max(...rows.map(r => r.totalElement))
-  const widthPerBar = 56   // more breathing room for labels
+  const widthPerBar = 56   // spacing for readable labels
   const w = Math.max(900, rows.length * widthPerBar + 140)
   const h = 420
   const m = { top: 10, right: 20, bottom: 120, left: 60 }
@@ -34,22 +34,17 @@ export default function BarChart({
 
   const colorFor = (pct: number, isBaseline: boolean) => {
     if (isBaseline) return '#ef4444' // red for baseline
-    if (pct <= 0) return '#ef4444'   // worse or equal to baseline
+    if (pct <= 0) return '#ef4444'   // baseline or worse
     if (pct <= 10) return '#f59e0b'  // yellow
     if (pct <= 20) return '#22c55e'  // green
     return '#10b981'                 // deep green
-  }
-
-  const labelForPct = (pct: number, isBaseline: boolean) => {
-    if (isBaseline) return 'Baseline'
-    return pct >= 0 ? `↓ ${pct.toFixed(0)}%` : `↑ ${Math.abs(pct).toFixed(0)}%`
   }
 
   const baselineText = baselineEf
     ? `Baseline (worst OPC): ${baselineLabel ?? '—'} · EF ${baselineEf.toFixed(2)} kg/kg`
     : 'Baseline: not available'
 
-  // helper: split long cement names onto 2 lines (break at space nearest mid)
+  // split long cement names into two lines (break near middle)
   const twoLine = (name: string) => {
     if (name.length <= 14) return [name, '']
     const mid = Math.floor(name.length / 2)
@@ -60,6 +55,51 @@ export default function BarChart({
   }
 
   const onBarActivate = (id: string) => setSelectedId(prev => (prev === id ? null : id))
+
+  // ---- helper to render the label above a bar (baseline gets special treatment) ----
+  function textAboveBar(
+    x: number,
+    y: number,
+    barW: number,
+    isBaseline: boolean,
+    pct: number
+  ) {
+    const label = isBaseline
+      ? 'Baseline'
+      : pct >= 0
+        ? `↓ ${pct.toFixed(0)}%`
+        : `↑ ${Math.abs(pct).toFixed(0)}%`
+
+    // Baseline floats higher with a connector so it never overlaps the bar top
+    const labelY = isBaseline ? y - 22 : Math.max(14, y - 8)
+    const connectorY1 = y - 4
+    const connectorY2 = labelY + 4
+
+    return (
+      <g>
+        {isBaseline && (
+          <line
+            x1={x + barW / 2}
+            x2={x + barW / 2}
+            y1={connectorY1}
+            y2={connectorY2}
+            stroke="#991b1b"
+            strokeWidth={1}
+          />
+        )}
+        <text
+          x={x + barW / 2}
+          y={labelY}
+          textAnchor="middle"
+          fontSize="12"
+          fill={isBaseline ? '#991b1b' : '#334155'}
+          fontWeight={isBaseline ? 700 : 500}
+        >
+          {label}
+        </text>
+      </g>
+    )
+  }
 
   return (
     <div className="card">
@@ -95,8 +135,8 @@ export default function BarChart({
               const y = ih - hBar
               const isBaseline = r.cement.id === opcBaselineId
               const fill = colorFor(r.gwpReductionPct, isBaseline)
-              const reductionLabel = labelForPct(r.gwpReductionPct, isBaseline)
               const isSelected = selectedId === r.cement.id
+              const reductionLabel = r.gwpReductionPct >= 0 ? `↓ ${r.gwpReductionPct.toFixed(0)}%` : `↑ ${Math.abs(r.gwpReductionPct).toFixed(0)}%`
 
               return (
                 <g key={r.cement.id}>
@@ -110,27 +150,18 @@ export default function BarChart({
                     cursor="pointer"
                     role="button"
                     tabIndex={0}
-                    aria-label={`${r.cement.cement_type}. Total ${formatNumber(r.totalElement)} kilograms. ${reductionLabel} vs baseline.`}
+                    aria-label={`${r.cement.cement_type}. Total ${formatNumber(r.totalElement)} kilograms. ${isBaseline ? 'Baseline.' : `${reductionLabel} vs baseline.`}`}
                     onClick={() => onBarActivate(r.cement.id)}
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onBarActivate(r.cement.id) }}
                     stroke={isSelected ? '#0ea5e9' : (r.cement.id === bestId ? '#065f46' : isBaseline ? '#991b1b' : 'none')}
                     strokeWidth={isSelected ? 2 : (r.cement.id === bestId || isBaseline ? 1.5 : 0)}
                   />
-                  {/* Reduction label (hide percentage for baseline; show “Baseline”) */}
-                  <text
-                    x={x + bar / 2}
-                    y={Math.max(14, y - 8)}
-                    textAnchor="middle"
-                    fontSize="12"
-                    fill="#334155"
-                    fontWeight={isBaseline ? 700 : 500}
-                  >
-                    {reductionLabel}
-                  </text>
-                  {/* Tooltip title */}
+                  {/* Non-overlapping label above bar */}
+                  {textAboveBar(x, y, bar, isBaseline, r.gwpReductionPct)}
+                  {/* Tooltip */}
                   <title>{`${r.cement.cement_type}
 Total: ${formatNumber(r.totalElement)} kg
-${reductionLabel}`}</title>
+${isBaseline ? 'Baseline' : `Reduction vs baseline: ${reductionLabel}`}`}</title>
                 </g>
               )
             })}
