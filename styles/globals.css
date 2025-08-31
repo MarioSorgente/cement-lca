@@ -161,3 +161,8 @@ body { margin: 0; background: #f7fafc; color: #0f172a; }
 .table-footer { margin-top: 10px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .pager { display: inline-flex; gap: 8px; }
 .pager .button[disabled] { opacity: 0.5; cursor: not-allowed; }
+
+/* Small helper to keep the “i” near the name without shifting layout */
+.ihelp-container { display: inline-flex; align-items: center; gap: 6px; }
+.ihelp .tooltip-icon { width: 16px; height: 16px; line-height: 16px; }
+.ihelp .tooltip-box { white-space: normal; width: 280px; }
