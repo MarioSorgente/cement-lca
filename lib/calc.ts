@@ -1,78 +1,99 @@
 // lib/calc.ts
-import { Cement, ResultRow } from './types'
+import { Cement, InputsState, ResultRow } from './types'
 
-/** Find the "baseline" as the worst OPC (no SCMs) in the dataset. */
-export function getWorstOPCBaseline(cements: Cement[]): { ef: number; cementId?: string; label?: string } {
-  const opc = cements.filter(c => c.scms.length === 0)
-  if (opc.length === 0) {
-    // Fallback: worst overall if no pure OPC exists
-    const worst = [...cements].sort((a, b) => b.co2e_per_kg_binder_A1A3 - a.co2e_per_kg_binder_A1A3)[0]
-    return { ef: worst?.co2e_per_kg_binder_A1A3 ?? 0.6, cementId: worst?.id, label: worst?.cement_type }
+/** Format with thin spaces for thousands (or default locale if you prefer) */
+export function formatNumber(n: number): string {
+  try {
+    return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(n)
+  } catch {
+    return Math.round(n).toString()
   }
-  const worstOPC = [...opc].sort((a, b) => b.co2e_per_kg_binder_A1A3 - a.co2e_per_kg_binder_A1A3)[0]
-  return { ef: worstOPC.co2e_per_kg_binder_A1A3, cementId: worstOPC.id, label: worstOPC.cement_type }
 }
 
-/** A1–A3 per m³ from dosage and EF (kg CO2e/kg). */
-export function computeCo2ePerM3(dosageKgPerM3: number, efKgPerKg: number) {
-  return dosageKgPerM3 * efKgPerKg
+/** Heuristic: treat CEM I as OPC */
+function isOPC(c: Cement): boolean {
+  // examples: "CEM I 42.5N", "CEM I 52.5R"
+  return /^CEM\s*I\b/i.test(c.cement_type)
 }
 
-/** A4 transport (kg CO2e) for whole element. */
-export function computeA4(volumeM3: number, distanceKm: number, efKgPerM3Km: number) {
-  return volumeM3 * distanceKm * efKgPerM3Km
-}
-
-/** Element total (kg): volume × A1–A3 per m³ (+ A4 if included). */
-export function computeTotal(volumeM3: number, co2ePerM3: number, includeA4: boolean, a4: number) {
-  const a1a3 = volumeM3 * co2ePerM3
-  return includeA4 ? a1a3 + a4 : a1a3
-}
-
-export function isExposureCompatible(cement: Cement, exposure: string) {
-  return cement.compatible_exposure_classes.includes(exposure)
-}
-
-export function formatNumber(n: number) {
-  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(n)
-}
-
-/** % reduction vs baseline EF. Positive = better than baseline; 0 = equal; negative = worse. */
-export function reductionPct(ef: number, baselineEf: number) {
-  if (!baselineEf || !isFinite(baselineEf)) return 0
-  return ((baselineEf - ef) / baselineEf) * 100
-}
-
-/** Build table/chart rows with a provided EF baseline. */
-export function toResultRows(
-  cements: Cement[],
-  opts: {
-    exposureClass: string
-    volumeM3: number
-    distanceKm: number
-    includeA4: boolean
-    dosageFor: (c: Cement) => number
-    tagsFor: (c: Cement) => string[]
-    baselineEf: number
+/** Pick the worst (highest EF) OPC as the baseline; fallback to max EF overall. */
+export function opcWorstBaseline(cements: Cement[]):
+  | { id: string; ef: number; label: string }
+  | null {
+  if (!cements?.length) return null
+  const opc = cements.filter(isOPC)
+  const target = (opc.length ? opc : cements).reduce((max, c) =>
+    (c.co2e_per_kg_binder_A1A3 > max.co2e_per_kg_binder_A1A3 ? c : max), (opc.length ? opc[0] : cements[0])
+  )
+  return {
+    id: target.id,
+    ef: target.co2e_per_kg_binder_A1A3,
+    label: target.cement_type,
   }
-): ResultRow[] {
-  return cements.map((c) => {
-    const dosage = opts.dosageFor(c)
-    const co2ePerM3 = computeCo2ePerM3(dosage, c.co2e_per_kg_binder_A1A3)
-    const a4 = computeA4(opts.volumeM3, opts.distanceKm, c.transport_ef_kg_per_m3_km)
-    const total = computeTotal(opts.volumeM3, co2ePerM3, opts.includeA4, a4)
-    const exposureCompatible = isExposureCompatible(c, opts.exposureClass)
-    const gwpReductionPct = reductionPct(c.co2e_per_kg_binder_A1A3, opts.baselineEf)
+}
 
-    return {
+/** Very simple mapping from concrete strength class to a typical binder dosage (kg/m3) */
+const strengthToDosage: Record<InputsState['concreteStrength'], number> = {
+  'C20/25': 300,
+  'C25/30': 320,
+  'C30/37': 330,
+  'C35/45': 340,
+  'C40/50': 350,
+  'C45/55': 360,
+  'C50/60': 370,
+}
+
+/** Returns true if the cement declares compatibility with the chosen exposure class. */
+function compatibleWithExposure(c: Cement, exposureClass: string): boolean {
+  if (!exposureClass) return true
+  if (!c.compatible_exposure_classes?.length) return true
+  return c.compatible_exposure_classes.includes(exposureClass)
+}
+
+/** Compute dosage to use (global override or cement default / strength-based). */
+function resolveDosage(c: Cement, inputs: InputsState): number {
+  if (inputs.dosageMode === 'global') {
+    // If global provided, prefer it; otherwise use strength map as a fallback.
+    return inputs.globalDosage || strengthToDosage[inputs.concreteStrength] || c.default_dosage_kg_per_m3
+  }
+  // Per-cement mode (not exposed heavily in MVP) – use default or strength heuristic
+  return c.default_dosage_kg_per_m3 || strengthToDosage[inputs.concreteStrength]
+}
+
+/** Build the comparison rows used in table + chart. */
+export function computeRows(cements: Cement[], inputs: InputsState): ResultRow[] {
+  if (!cements?.length) return []
+
+  const baseline = opcWorstBaseline(cements)
+  const baselineEF = baseline?.ef ?? Math.max(...cements.map(c => c.co2e_per_kg_binder_A1A3))
+
+  return cements.map(c => {
+    const dosageUsed = resolveDosage(c, inputs) // kg/m3
+    const co2ePerM3_A1A3 = dosageUsed * c.co2e_per_kg_binder_A1A3 // kg per m3
+    const a4Transport = inputs.includeA4
+      ? c.transport_ef_kg_per_m3_km * inputs.distanceKm * inputs.volumeM3 // kg per element
+      : 0
+
+    const totalElement = co2ePerM3_A1A3 * inputs.volumeM3 + a4Transport // kg per element
+    const exposureCompatible = compatibleWithExposure(c, inputs.exposureClass)
+
+    // % reduction vs baseline EF (positive = better than baseline)
+    const gwpReductionPct = ((baselineEF - c.co2e_per_kg_binder_A1A3) / baselineEF) * 100
+
+    const tags: string[] = []
+    if (isOPC(c)) tags.push('OPC')
+    if (c.scms?.length) tags.push(...c.scms.map(s => s.type))
+
+    const row: ResultRow = {
       cement: c,
-      dosageUsed: dosage,
-      co2ePerM3_A1A3: co2ePerM3,
-      a4Transport: a4,
-      totalElement: total,
+      dosageUsed,
+      co2ePerM3_A1A3,
+      a4Transport,
+      totalElement,
       exposureCompatible,
-      tags: opts.tagsFor(c),
-      gwpReductionPct
+      tags,
+      gwpReductionPct,
     }
+    return row
   })
 }
