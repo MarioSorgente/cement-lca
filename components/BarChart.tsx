@@ -17,10 +17,11 @@ export default function BarChart({
   const yTicks = 6
   const tickValues = Array.from({ length: yTicks + 1 }, (_, i) => Math.round((max * i) / yTicks))
 
-  const colorFor = (id: string) => {
-    if (id === bestId) return '#10b981'       // green
-    if (id === opcBaselineId) return '#ef4444' // red
-    return '#22c55e'                          // mid green
+  const colorFor = (pct: number) => {
+    if (pct <= 0) return '#ef4444'        // red
+    if (pct <= 10) return '#f59e0b'       // yellow
+    if (pct <= 20) return '#22c55e'       // green
+    return '#10b981'                       // deep green
   }
 
   return (
@@ -28,7 +29,6 @@ export default function BarChart({
       <h2 style={{ fontSize: 18, fontWeight: 600, marginTop: 0 }}>Total Element CO₂e Comparison</h2>
 
       <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', height: 'auto' }} role="img" aria-label="Bar chart of total CO2e">
-        {/* Y grid + axis */}
         <g transform={`translate(${m.left},${m.top})`}>
           {tickValues.map((tv, i) => {
             const y = ih - (tv / max) * ih
@@ -40,21 +40,19 @@ export default function BarChart({
             )
           })}
 
-          {/* Bars */}
           {rows.map((r, i) => {
             const x = i * step + (step - bar) / 2
             const hBar = (r.totalElement / max) * ih
             const y = ih - hBar
+            const fill = colorFor(r.gwpReductionPct)
             return (
               <g key={r.cement.id}>
-                <rect x={x} y={y} width={bar} height={hBar} fill={colorFor(r.cement.id)} rx={4} />
-                {/* Value label */}
-                <title>{`${r.cement.cement_type}: ${formatNumber(r.totalElement)} kg`}</title>
+                <rect x={x} y={y} width={bar} height={hBar} fill={fill} rx={4} />
+                <title>{`${r.cement.cement_type}: ${formatNumber(r.totalElement)} kg · Δ ${r.gwpReductionPct.toFixed(0)}%`}</title>
               </g>
             )
           })}
 
-          {/* X labels */}
           {rows.map((r, i) => {
             const x = i * step + step / 2
             const label = r.cement.cement_type
@@ -68,9 +66,10 @@ export default function BarChart({
       </svg>
 
       <div className="small" style={{ display:'flex', gap: 12, marginTop: 8, alignItems:'center' }}>
-        <span className="legend-swatch best" /> Best (lowest)
-        <span className="legend-swatch baseline" /> OPC baseline
-        <span className="legend-swatch other" /> Others
+        <span className="chip chip-deepgreen" /> &gt;20% better
+        <span className="chip chip-green" /> 10–20%
+        <span className="chip chip-yellow" /> ≤10%
+        <span className="chip chip-red" /> ≤0%
       </div>
     </div>
   )
