@@ -20,14 +20,14 @@ export default function BarChart({
 
   // layout
   const max = Math.max(...rows.map(r => r.totalElement))
-  const widthPerBar = 56   // spacing for readable labels
-  const w = Math.max(900, rows.length * widthPerBar + 140)
-  const h = 420
-  const m = { top: 10, right: 20, bottom: 120, left: 60 }
+  const widthPerBar = 58
+  const w = Math.max(900, rows.length * widthPerBar + 160)
+  const h = 430
+  const m = { top: 28, right: 24, bottom: 120, left: 64 } // extra headroom for labels
   const iw = w - m.left - m.right
   const ih = h - m.top - m.bottom
   const step = iw / rows.length
-  const bar = Math.min(40, step * 0.64)
+  const bar = Math.min(42, step * 0.64)
 
   const yTicks = 5
   const tickValues = Array.from({ length: yTicks + 1 }, (_, i) => Math.round((max * i) / yTicks))
@@ -44,9 +44,11 @@ export default function BarChart({
     ? `Baseline (worst OPC): ${baselineLabel ?? '—'} · EF ${baselineEf.toFixed(2)} kg/kg`
     : 'Baseline: not available'
 
-  // split long cement names into two lines (break near middle)
+  // Prefer splitting before strength class (… 32.5N, 42.5R, etc); else split near middle
   const twoLine = (name: string) => {
-    if (name.length <= 14) return [name, '']
+    const m = name.match(/\s(\d{2}\.\d[NR])$/)
+    if (m && m.index) return [name.slice(0, m.index), name.slice(m.index + 1)]
+    if (name.length <= 16) return [name, '']
     const mid = Math.floor(name.length / 2)
     let split = name.indexOf(' ', mid)
     if (split === -1) split = name.lastIndexOf(' ')
@@ -54,9 +56,7 @@ export default function BarChart({
     return [name.slice(0, split), name.slice(split + 1)]
   }
 
-  const onBarActivate = (id: string) => setSelectedId(prev => (prev === id ? null : id))
-
-  // ---- helpers for label pills (never overlapping / clipped) ----
+  // helpers for label pills (never overlapping / clipped)
   const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v))
 
   function labelTextAndColors(isBaseline: boolean, pct: number) {
@@ -73,38 +73,45 @@ export default function BarChart({
     isBaseline: boolean,
     pct: number
   ) {
-    const padX = 6, padY = 3, radius = 8
+    const padX = 7, radius = 9
     const { text, textFill, bg, stroke } = labelTextAndColors(isBaseline, pct)
     // rough text width estimate (SVG has no easy pre-measure)
-    const estTextW = Math.max(24, text.length * 6.2)
+    const estTextW = Math.max(26, text.length * 6.5)
     const pillW = estTextW + padX * 2
-    const pillH = 18
-
-    // Compute a target Y above the bar, then clamp within chart
-    const desired = isBaseline ? yBarTop - 22 : yBarTop - 10
-    const y = clamp(desired, 12, ih - 6) // keep text inside the plot area
+    const pillH = 20
+    const desired = isBaseline ? yBarTop - 26 : yBarTop - 12
+    const y = clamp(desired, 16, ih - 6) // keep label inside plot area
     const x = xCenter - pillW / 2
 
     return (
       <g>
-        {/* connector only for baseline */}
         {isBaseline && (
           <line
             x1={xCenter}
             x2={xCenter}
-            y1={Math.max(4, yBarTop - 4)}
-            y2={y + pillH - 4}
+            y1={Math.max(6, yBarTop - 6)}
+            y2={y + pillH - 6}
             stroke="#991b1b"
             strokeWidth={1}
           />
         )}
         <rect x={x} y={y - pillH + 2} width={pillW} height={pillH} rx={radius} fill={bg} stroke={stroke} />
-        <text x={xCenter} y={y - 4} textAnchor="middle" fontSize="12" fill={textFill} fontWeight={isBaseline ? 700 : 600}>
+        <text
+          x={xCenter}
+          y={y - 4}
+          textAnchor="middle"
+          fontSize="12.5"
+          fill={textFill}
+          fontWeight={isBaseline ? 700 : 600}
+          style={{ paintOrder: 'stroke', stroke: '#ffffff', strokeWidth: 2 }}
+        >
           {text}
         </text>
       </g>
     )
   }
+
+  const nf = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 })
 
   return (
     <div className="card">
@@ -115,12 +122,7 @@ export default function BarChart({
 
       {/* Horizontal scroll if many bars */}
       <div className="chart-scroll" role="region" aria-label="CO2e bar chart">
-        <svg
-          viewBox={`0 0 ${w} ${h}`}
-          style={{ width: '100%', height: 'auto' }}
-          role="img"
-          aria-label="Bar chart of total CO2e for current selection"
-        >
+        <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', height: 'auto' }} role="img">
           <g transform={`translate(${m.left},${m.top})`}>
             {/* Grid + y axis */}
             {tickValues.map((tv, i) => {
@@ -128,7 +130,9 @@ export default function BarChart({
               return (
                 <g key={i}>
                   <line x1={0} x2={iw} y1={y} y2={y} stroke="#e5e7eb" />
-                  <text x={-10} y={y + 4} textAnchor="end" fontSize="12" fill="#475569">{tv}</text>
+                  <text x={-10} y={y + 4} textAnchor="end" fontSize="12" fill="#475569">
+                    {nf.format(tv)}
+                  </text>
                 </g>
               )
             })}
@@ -155,23 +159,23 @@ export default function BarChart({
                     cursor="pointer"
                     role="button"
                     tabIndex={0}
-                    aria-label={`${r.cement.cement_type}. Total ${formatNumber(r.totalElement)} kilograms. ${isBaseline ? 'Baseline.' : `${reductionLabel} vs baseline.`}`}
-                    onClick={() => onBarActivate(r.cement.id)}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onBarActivate(r.cement.id) }}
+                    aria-label={`${r.cement.cement_type}. Total ${nf.format(r.totalElement)} kilograms. ${isBaseline ? 'Baseline.' : `${reductionLabel} vs baseline.`}`}
+                    onClick={() => setSelectedId(prev => (prev === r.cement.id ? null : r.cement.id))}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setSelectedId(prev => (prev === r.cement.id ? null : r.cement.id)) }}
                     stroke={isSelected ? '#0ea5e9' : (r.cement.id === bestId ? '#065f46' : isBaseline ? '#991b1b' : 'none')}
                     strokeWidth={isSelected ? 2 : (r.cement.id === bestId || isBaseline ? 1.5 : 0)}
                   />
-                  {/* Label pill (never clips/overlaps) */}
+                  {/* Non-clipping label pill */}
                   {drawLabelPill(x + bar / 2, y, isBaseline, r.gwpReductionPct)}
                   {/* Tooltip */}
                   <title>{`${r.cement.cement_type}
-Total: ${formatNumber(r.totalElement)} kg
+Total: ${nf.format(r.totalElement)} kg
 ${isBaseline ? 'Baseline' : `Reduction vs baseline: ${reductionLabel}`}`}</title>
                 </g>
               )
             })}
 
-            {/* X labels (two lines, angled slightly) */}
+            {/* X labels (two lines, gently angled) */}
             {rows.map((r, i) => {
               const x = i * step + step / 2
               const [l1, l2] = twoLine(r.cement.cement_type)
@@ -179,9 +183,9 @@ ${isBaseline ? 'Baseline' : `Reduction vs baseline: ${reductionLabel}`}`}</title
               const isBaseline = r.cement.id === opcBaselineId
               const color = isBest ? '#065f46' : isBaseline ? '#991b1b' : '#475569'
               return (
-                <g key={r.cement.id} transform={`translate(${x},${ih + 22}) rotate(-30)`}>
-                  <text fontSize="12" fill={color} textAnchor="end">{l1}</text>
-                  {l2 && <text y={14} fontSize="12" fill={color} textAnchor="end">{l2}</text>}
+                <g key={r.cement.id} transform={`translate(${x},${ih + 20}) rotate(-24)`}>
+                  <text fontSize="12" fill={color} textAnchor="end" style={{ paintOrder: 'stroke', stroke: '#fff', strokeWidth: 2 }}>{l1}</text>
+                  {l2 && <text y={14} fontSize="12" fill={color} textAnchor="end" style={{ paintOrder: 'stroke', stroke: '#fff', strokeWidth: 2 }}>{l2}</text>}
                 </g>
               )
             })}
@@ -189,18 +193,15 @@ ${isBaseline ? 'Baseline' : `Reduction vs baseline: ${reductionLabel}`}`}</title
         </svg>
       </div>
 
-      {/* Details panel */}
-      <div
-        className="details-card"
-        aria-live="polite"
-        style={{ display: selected ? 'grid' : 'none' }}
-      >
+      {/* Details panel (includes Recommended applications if present) */}
+      <div className="details-card" aria-live="polite" style={{ display: selected ? 'grid' : 'none' }}>
         {selected && (
           <>
             <div className="details-title">
               {selected.cement.cement_type}
               <span className="tag" style={{ marginLeft: 8 }}>{selected.cement.strength_class}</span>
             </div>
+
             <div className="details-grid">
               <div>
                 <div className="details-label">Reduction vs baseline</div>
@@ -229,6 +230,18 @@ ${isBaseline ? 'Baseline' : `Reduction vs baseline: ${reductionLabel}`}`}</title
                 <div className="details-value">{formatNumber(selected.totalElement)} kg</div>
               </div>
             </div>
+
+            {selected.cement.applications && selected.cement.applications.length > 0 && (
+              <div style={{ marginTop: 6 }}>
+                <div className="details-label" style={{ marginBottom: 6 }}>Recommended applications</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {selected.cement.applications.map((a) => (
+                    <span key={a} className="app-badge">{a}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="details-notes">{selected.cement.notes}</div>
           </>
         )}
