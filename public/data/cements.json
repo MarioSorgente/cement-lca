@@ -16,6 +16,7 @@
     "declared_scope": "A1-A3",
     "notes": "Baseline OPC; reliable early strength; highest CO₂ among options.",
     "applications": ["General purpose cast-in-place", "Conventional building frames", "Precast (standard cycles)", "Cold to mild climates with normal curing"]
+    "is_common": true
   },
   {
     "id": "cem1-425r",
@@ -88,6 +89,8 @@
     "declared_scope": "A1-A3",
     "notes": "Good all-rounder with modest CO₂ reduction.",
     "applications": ["General structural concrete", "Floors and beams with normal stripping", "Ready-mix in mild to moderate exposure"]
+    "is_common": true
+
   },
   {
     "id": "cem2b-l-425n",
@@ -106,6 +109,8 @@
     "declared_scope": "A1-A3",
     "notes": "Higher limestone; watch early strength at low temps.",
     "applications": ["Low-carbon general concrete", "Architectural fair-faced concrete", "Pavements and slabs in mild climates"]
+    "is_common": true
+
   },
   {
     "id": "cem2a-s-425n",
@@ -124,6 +129,8 @@
     "declared_scope": "A1-A3",
     "notes": "S = GGBS (slag). Slight chloride resistance improvement over OPC.",
     "applications": ["Parking decks (de-icing salts)", "Coastal XC/XS1 exposure", "Foundations with moderate heat control"]
+    "is_common": true
+
   },
   {
     "id": "cem2b-s-425n",
@@ -142,6 +149,8 @@
     "declared_scope": "A1-A3",
     "notes": "Good balance of CO₂ cut and durability in chloride environments.",
     "applications": ["Bridge substructures near marine", "Car parks (chlorides)", "Water retaining structures", "High-durability urban infrastructure"]
+    "is_common": true
+
   },
   {
     "id": "cem2a-v-425n",
@@ -160,6 +169,8 @@
     "declared_scope": "A1-A3",
     "notes": "V = fly ash. Moderate CO₂ reduction; slower early strength in cold weather.",
     "applications": ["Mass footings (reduced heat)", "Raft slabs", "Large pours with temperature control", "Pavements in mild to warm climates"]
+    "is_common": true
+
   },
   {
     "id": "cem2b-v-425n",
@@ -178,6 +189,8 @@
     "declared_scope": "A1-A3",
     "notes": "Higher fly ash; check early-age strength and curing.",
     "applications": ["Dams and thick walls (low heat)", "Mat foundations", "Piles and pile caps", "Industrial floors (warm climates)"]
+    "is_common": true
+
   },
   {
     "id": "cem2a-ll-425n",
@@ -214,6 +227,8 @@
     "declared_scope": "A1-A3",
     "notes": "Slag-rich; strong chloride resistance; slower early strength in cold.",
     "applications": ["Marine structures (piers, quays)", "Coastal bridges", "Wastewater/industrial exposure", "Water-retaining structures"]
+    "is_common": true
+
   },
   {
     "id": "cem3b-425n",
