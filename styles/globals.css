@@ -51,3 +51,13 @@ body { margin: 0; background: #f7fafc; color: #0f172a; }
 .legend-swatch.other { background: #22c55e; }
 
 .footer { font-size: 12px; color: #64748b; padding-top: 16px; }
+
+.table-footer {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.pager { display: inline-flex; gap: 8px; }
+.pager .button[disabled] { opacity: 0.5; cursor: not-allowed; }
