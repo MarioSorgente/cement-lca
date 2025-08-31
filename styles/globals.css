@@ -61,3 +61,13 @@ body { margin: 0; background: #f7fafc; color: #0f172a; }
 }
 .pager { display: inline-flex; gap: 8px; }
 .pager .button[disabled] { opacity: 0.5; cursor: not-allowed; }
+
+.tooltip-wrapper { position: relative; display: inline-flex; align-items: center; margin-left: 6px; cursor: help; }
+.tooltip-icon { display: inline-block; width:16px; height:16px; border-radius:50%; background:#e2e8f0; color:#334155;
+  font-size:11px; font-weight:700; text-align:center; line-height:16px; }
+.tooltip-box { position:absolute; top:125%; left:50%; transform:translateX(-50%);
+  background:#1e293b; color:white; padding:6px 10px; border-radius:6px; font-size:12px; white-space:nowrap; z-index:20; }
+
+.input-group { border:1px solid #e2e8f0; border-radius:10px; padding:12px; background:#f9fafb; margin-top:4px; }
+.input-group label { font-weight:500; font-size:14px; margin-bottom:4px; display:block; }
+
