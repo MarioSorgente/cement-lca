@@ -23,6 +23,8 @@ export interface Cement {
   compatible_exposure_classes: string[]
   declared_scope: 'A1-A3' | 'A1-A5'
   notes?: string
+  /** NEW: recommended applications to surface in the details card */
+  applications?: string[]
 }
 
 export interface InputsState {
@@ -53,12 +55,12 @@ export interface InputsState {
 
 export interface ResultRow {
   cement: Cement
-  dosageUsed: number                 // kg binder per m3 used in calc
-  co2ePerM3_A1A3: number            // kg CO2e per m3 (A1–A3)
-  a4Transport: number               // kg CO2e (A4) for the whole element
-  totalElement: number              // kg CO2e element total (A1–A3 [+ A4 if enabled])
+  dosageUsed: number
+  co2ePerM3_A1A3: number
+  a4Transport: number
+  totalElement: number
   exposureCompatible: boolean
   tags: string[]
-  /** % reduction vs baseline EF (CEM I 52.5R = 0.60 kgCO2e/kg). Can be negative. */
+  /** % reduction vs baseline EF (dynamic baseline = worst OPC). Can be negative. */
   gwpReductionPct: number
 }
