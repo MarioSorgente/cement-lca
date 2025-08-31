@@ -1,11 +1,7 @@
 // lib/types.ts
-
 export type SCMType = 'S' | 'V' | 'P' | 'LL' | 'CC'
 
-export interface SCM {
-  type: SCMType
-  fraction: number
-}
+export interface SCM { type: SCMType; fraction: number }
 
 export interface Cement {
   id: string
@@ -24,25 +20,20 @@ export interface Cement {
   declared_scope: 'A1-A3' | 'A1-A5'
   notes?: string
   applications?: string[]
-  /** NEW: marks cements widely produced/used */
   is_common?: boolean
 }
 
 export interface InputsState {
   concreteStrength:
-    | 'C20/25'
-    | 'C25/30'
-    | 'C30/37'
-    | 'C35/45'
-    | 'C40/50'
-    | 'C45/55'
-    | 'C50/60'
+    | 'C20/25' | 'C25/30' | 'C30/37' | 'C35/45' | 'C40/50' | 'C45/55' | 'C50/60'
   exposureClass: string
   volumeM3: number
   distanceKm: number
   includeA4: boolean
   dosageMode: 'global' | 'perCement'
   globalDosage: number
+  /** NEW: overrides used when dosageMode === 'perCement' */
+  perCementDosage?: Record<string, number>
   filters: {
     OPC: boolean
     Slag: boolean
@@ -62,5 +53,6 @@ export interface ResultRow {
   totalElement: number
   exposureCompatible: boolean
   tags: string[]
+  /** +% better vs baseline EF (positive is better) */
   gwpReductionPct: number
 }
