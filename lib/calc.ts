@@ -1,9 +1,6 @@
 // lib/calc.ts
 import { Cement, ResultRow } from './types'
 
-/** Baseline: CEM I 52.5R — 0.60 kg CO2e/kg (A1–A3) */
-export const BASELINE_GWP_KG_PER_KG = 0.60
-
 export function computeCo2ePerM3(dosageKgPerM3: number, efKgPerKg: number) {
   return dosageKgPerM3 * efKgPerKg
 }
@@ -30,9 +27,9 @@ export function formatNumber(n: number) {
   return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(n)
 }
 
-/** % reduction vs baseline EF. Positive = better than baseline; 0 = equal; negative = worse. */
-export function reductionPct(ef: number, baseline = BASELINE_GWP_KG_PER_KG) {
-  return ((baseline - ef) / baseline) * 100
+/** % reduction vs a given baseline EF. Positive = better than baseline; 0 = equal; negative = worse. */
+export function reductionPct(ef: number, baselineEf: number) {
+  return ((baselineEf - ef) / baselineEf) * 100
 }
 
 export function toResultRows(
@@ -44,6 +41,7 @@ export function toResultRows(
     includeA4: boolean
     dosageFor: (c: Cement) => number
     tagsFor: (c: Cement) => string[]
+    baselineEf: number
   }
 ): ResultRow[] {
   return cements.map((c) => {
@@ -52,7 +50,7 @@ export function toResultRows(
     const a4 = computeA4(opts.volumeM3, opts.distanceKm, c.transport_ef_kg_per_m3_km)
     const total = computeTotal(opts.volumeM3, co2ePerM3, opts.includeA4, a4)
     const exposureCompatible = isExposureCompatible(c, opts.exposureClass)
-    const gwpReductionPct = reductionPct(c.co2e_per_kg_binder_A1A3)
+    const gwpReductionPct = reductionPct(c.co2e_per_kg_binder_A1A3, opts.baselineEf)
 
     return {
       cement: c,
