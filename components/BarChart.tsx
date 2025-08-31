@@ -18,7 +18,7 @@ export default function BarChart({
 
   if (!rows.length) return null
 
-  // same "worst non-baseline" logic as table
+  // Single worst (closest to baseline) among non-baseline rows
   const worstNonBaselineId = useMemo(() => {
     const pool = rows.filter(r => r.cement.id !== opcBaselineId)
     if (!pool.length) return undefined
@@ -26,7 +26,7 @@ export default function BarChart({
     return worst.cement.id
   }, [rows, opcBaselineId])
 
-  // layout
+  // Layout
   const max = Math.max(...rows.map(r => r.totalElement))
   const widthPerBar = 56
   const w = Math.max(900, rows.length * widthPerBar + 180)
@@ -40,7 +40,7 @@ export default function BarChart({
   const yTicks = 5
   const tickValues = Array.from({ length: yTicks + 1 }, (_, i) => Math.round((max * i) / yTicks))
 
-  // color scheme with ORANGE for worst non-baseline
+  // Colors (orange for worst non-baseline, red baseline)
   const colorFor = (r: ResultRow) => {
     const isBaseline = r.cement.id === opcBaselineId
     const isWorst = r.cement.id === worstNonBaselineId
@@ -57,7 +57,7 @@ export default function BarChart({
     ? `Baseline (worst OPC): ${baselineLabel ?? '—'} · EF ${baselineEf.toFixed(2)} kg/kg`
     : 'Baseline: not available'
 
-  // split long cement names into two lines (kept though we rotate 45°)
+  // Optional name split (we still rotate 45°)
   const twoLine = (name: string) => {
     if (name.length <= 14) return [name, '']
     const mid = Math.floor(name.length / 2)
@@ -128,6 +128,7 @@ export default function BarChart({
           aria-label="Bar chart of total CO2e for current selection"
         >
           <g transform={`translate(${m.left},${m.top})`}>
+            {/* Grid / axis */}
             {tickValues.map((tv, i) => {
               const y = ih - (tv / max) * ih
               return (
@@ -138,6 +139,7 @@ export default function BarChart({
               )
             })}
 
+            {/* Bars */}
             {rows.map((r, i) => {
               const x = i * step + (step - bar) / 2
               const hBar = (r.totalElement / max) * ih
@@ -160,8 +162,8 @@ export default function BarChart({
                     role="button"
                     tabIndex={0}
                     aria-label={`${r.cement.cement_type}. Total ${formatNumber(r.totalElement)} kilograms. ${isBaseline ? 'Baseline.' : `${reductionLabel} vs baseline.`}`}
-                    onClick={() => setSelectedId(prev => prev === r.cement.id ? null : r.cement.id)}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setSelectedId(prev => prev === r.cement.id ? null : r.cement.id) }}
+                    onClick={() => onBarActivate(r.cement.id)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onBarActivate(r.cement.id) }}
                     stroke={
                       isSelected ? '#0ea5e9'
                       : (r.cement.id === bestId ? '#065f46'
@@ -177,7 +179,7 @@ ${isBaseline ? 'Baseline' : `Reduction vs baseline: ${reductionLabel}`}`}</title
               )
             })}
 
-            {/* X labels always -45° so appearing labels won't overlap */}
+            {/* X labels always -45° so appearing labels don’t overlap */}
             {rows.map((r, i) => {
               const x = i * step + step / 2
               const [l1, l2] = twoLine(r.cement.cement_type)
@@ -197,7 +199,7 @@ ${isBaseline ? 'Baseline' : `Reduction vs baseline: ${reductionLabel}`}`}</title
         </svg>
       </div>
 
-      {/* Details / info panel with card-like application chips */}
+      {/* Details / info panel */}
       <div
         className="details-card"
         aria-live="polite"
@@ -244,22 +246,7 @@ ${isBaseline ? 'Baseline' : `Reduction vs baseline: ${reductionLabel}`}`}</title
                 <div className="details-label" style={{ marginBottom: 6 }}>Recommended applications</div>
                 <div style={{ display:'flex', flexWrap:'wrap', gap:'8px' }}>
                   {selected.cement.applications.map((a, idx) => (
-                    <span
-                      key={idx}
-                      style={{
-                        display:'inline-flex',
-                        alignItems:'center',
-                        padding:'6px 10px',
-                        borderRadius:10,
-                        border:'1px solid #e2e8f0',
-                        background:'#ffffff',
-                        boxShadow:'0 2px 6px rgba(16,24,40,0.05)',
-                        fontSize:12,
-                        color:'#0f172a'
-                      }}
-                    >
-                      {a}
-                    </span>
+                    <span key={idx} className="app-chip">{a}</span>
                   ))}
                 </div>
               </div>
