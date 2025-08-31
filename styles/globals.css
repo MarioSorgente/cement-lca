@@ -192,3 +192,33 @@ body { margin: 0; background: #f7fafc; color: #0f172a; }
 .ihelp-container { display: inline-flex; align-items: center; gap: 6px; }
 .ihelp .tooltip-icon { width: 16px; height: 16px; line-height: 16px; }
 
+/* Hide tooltips by default; show on hover */
+.tooltip-box { display: none; }
+.tooltip-wrapper:hover .tooltip-box { display: block; }
+
+/* Shared popup positioning to the right of the trigger */
+.tooltip-right {
+  position: absolute;
+  top: 50%;
+  left: 22px;
+  transform: translateY(-50%);
+  max-width: 320px;
+  white-space: normal;
+  background: #1e293b;
+  color: #fff;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  box-shadow: 0 8px 24px rgba(16,24,40,0.2);
+  z-index: 30;
+}
+
+/* Header help icon sits flush with label and doesn’t trigger sort */
+.th-help { position: relative; display: inline-flex; align-items: center; margin-left: 6px; cursor: help; }
+.th-label { vertical-align: middle; }
+.tooltip-icon { width: 16px; height: 16px; line-height: 16px; text-align: center; border-radius: 50%; background: #e2e8f0; color: #334155; font-size: 11px; font-weight: 700; }
+
+/* Make SCM tag act as a tooltip trigger without changing its look */
+.tag.tooltip-wrapper { position: relative; cursor: help; }
+
+
