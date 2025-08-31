@@ -92,5 +92,54 @@ body { margin: 0; background: #f7fafc; color: #0f172a; }
 .chip-green { background:#ecfdf5; color:#065f46; border-color:#a7f3d0; }
 .chip-deepgreen { background:#d1fae5; color:#065f46; border-color:#6ee7b7; }
 
+/* Chart container: allow horizontal scroll for long sets */
+.chart-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 8px; /* keep scrollbar off the SVG bottom labels */
+}
+
+/* Details card under chart */
+.details-card {
+  margin-top: 12px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+.details-title {
+  font-weight: 700;
+  font-size: 16px;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+}
+.details-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(160px, 1fr));
+  gap: 12px;
+}
+.details-label {
+  font-size: 12px;
+  color: #64748b;
+}
+.details-value {
+  font-size: 14px;
+  color: #0f172a;
+  font-weight: 600;
+}
+.details-notes {
+  font-size: 12px;
+  color: #475569;
+}
+
+/* Optional: make bars feel clickable on hover via parent SVG */
+.chart-scroll svg rect[role="button"]:hover {
+  filter: brightness(0.95);
+}
+
+
 
 
