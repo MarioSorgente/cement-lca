@@ -140,6 +140,18 @@ body { margin: 0; background: #f7fafc; color: #0f172a; }
   filter: brightness(0.95);
 }
 
+.app-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  color: #3730a3;
+  font-size: 12px;
+  font-weight: 600;
+}
+
 
 
 
