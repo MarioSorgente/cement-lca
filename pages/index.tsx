@@ -21,7 +21,6 @@ type Scope = 'all' | 'compatible' | 'common'
 export default function Home() {
   // ----- Inputs block -----
   const [inputs, setInputs] = useState<InputsState>({
-    strengthClass: 'C25/30',
     exposureClass: 'XC2',
     volumeM3: 100,
     distanceKm: 0,
@@ -65,7 +64,7 @@ export default function Home() {
     if (scope === 'compatible') {
       rows = rows.filter(r => r.exposureCompatible)
     } else if (scope === 'common') {
-      rows = rows.filter(r => r.cement.is_common)
+      rows = rows.filter(r => (r.cement as any).is_common)
     }
     if (search.trim()) {
       const q = search.trim().toLowerCase()
@@ -110,7 +109,7 @@ export default function Home() {
         <div className="card-head">
           <h2>Design Inputs</h2>
         </div>
-        {/* NOTE: Inputs component here uses `{ state, setState }` props */}
+        {/* Inputs component expects { state, setState } */}
         <Inputs state={inputs} setState={setInputs} />
       </div>
 
