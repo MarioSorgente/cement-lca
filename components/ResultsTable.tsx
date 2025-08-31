@@ -45,7 +45,7 @@ export default function ResultsTable({
   dosageMode, perCementDosage, onPerCementDosageChange
 }: Props) {
 
-  // one worst (closest to baseline) among non-baseline rows
+  // single worst (closest to baseline) among non-baseline rows
   const worstNonBaselineId = useMemo(() => {
     const pool = rows.filter(r => r.cement.id !== baselineId)
     if (!pool.length) return undefined
@@ -78,7 +78,7 @@ export default function ResultsTable({
           <thead>
             <tr>
               <Th k="cement"    label="Cement"             sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}/>
-              {/* Strength column removed as requested */}
+              {/* Strength column removed */}
               <Th k="clinker"   label="Clinker"            sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}/>
               <Th k="ef"        label="EF (kgCO₂/kg)"      sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}/>
               <Th k="dosage"    label="Dosage (kg/m³)"     sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}/>
