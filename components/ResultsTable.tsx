@@ -6,7 +6,10 @@ type SortDir = 'asc'|'desc'
 
 export default function ResultsTable({
   rows, state, dosageOverrides, setDosageOverride, onDownload,
-  bestId, opcBaselineId, sortKey, sortDir, onSortChange
+  bestId, opcBaselineId, sortKey, sortDir, onSortChange,
+  // new controls
+  search, onSearch, hideIncompatible, onToggleHideIncompatible,
+  page, totalPages, onPageChange, pageSize, onPageSizeChange, totalCount
 }: {
   rows: ResultRow[]
   state: InputsState
@@ -18,17 +21,17 @@ export default function ResultsTable({
   sortKey: SortKey
   sortDir: SortDir
   onSortChange: (k: SortKey) => void
+  search: string
+  onSearch: (v: string) => void
+  hideIncompatible: boolean
+  onToggleHideIncompatible: (v: boolean) => void
+  page: number
+  totalPages: number
+  onPageChange: (p: number) => void
+  pageSize: number
+  onPageSizeChange: (n: number) => void
+  totalCount: number
 }) {
-  if (!rows.length) return (
-    <div className="card">
-      <div className="card-head">
-        <h2>Comparison</h2>
-        <button className="button" onClick={onDownload} disabled>Export CSV</button>
-      </div>
-      <p className="small">No matching cement types with current filters.</p>
-    </div>
-  )
-
   const Th = ({ k, children }: { k: SortKey; children: React.ReactNode }) => (
     <th onClick={() => onSortChange(k)} className="th-sort" role="button">
       <span>{children}</span>
@@ -38,8 +41,37 @@ export default function ResultsTable({
 
   return (
     <div className="card">
-      <div className="card-head">
-        <h2>Comparison</h2>
+      <div className="card-head" style={{ gap: 12 }}>
+        <h2 style={{ marginRight: 'auto' }}>Comparison</h2>
+
+        {/* Controls: search, hide incompatible, page size, export */}
+        <input
+          className="input"
+          style={{ width: 240 }}
+          placeholder="Search: CEM type or standard…"
+          value={search}
+          onChange={(e) => onSearch(e.target.value)}
+        />
+        <label className="badge" title="Hide exposure-incompatible">
+          <input
+            type="checkbox"
+            checked={hideIncompatible}
+            onChange={(e) => onToggleHideIncompatible(e.target.checked)}
+            style={{ marginRight: 6 }}
+          />
+          Hide incompatible
+        </label>
+
+        <select
+          className="select"
+          value={pageSize}
+          onChange={(e) => onPageSizeChange(Number(e.target.value))}
+          style={{ width: 110 }}
+          title="Rows per page"
+        >
+          {[5,10,15,20,50].map(n => <option key={n} value={n}>{n}/page</option>)}
+        </select>
+
         <button className="button" onClick={onDownload}>Export CSV</button>
       </div>
 
@@ -61,12 +93,15 @@ export default function ResultsTable({
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => {
+            {rows.length === 0 ? (
+              <tr><td colSpan={11} className="small">No rows. Try different filters or search.</td></tr>
+            ) : rows.map((r) => {
               const scms = r.cement.scms.map(s => `${s.type}:${Math.round(s.fraction*100)}%`).join('+') || 'None'
+              const incompatible = !r.exposureCompatible
               const rowClass =
                 (r.cement.id === bestId ? 'row-best ' : '') +
                 (r.cement.id === opcBaselineId ? 'row-baseline ' : '') +
-                (r.exposureCompatible ? '' : 'dimmed')
+                (incompatible ? 'dimmed' : '')
               return (
                 <tr key={r.cement.id} className={rowClass}>
                   <td>
@@ -100,6 +135,17 @@ export default function ResultsTable({
             })}
           </tbody>
         </table>
+      </div>
+
+      {/* Pagination footer */}
+      <div className="table-footer">
+        <div className="small">{rows.length ? `Showing page ${page} of ${totalPages} · ${totalCount} total` : '—'}</div>
+        <div className="pager">
+          <button className="button" onClick={() => onPageChange(1)} disabled={page <= 1}>« First</button>
+          <button className="button" onClick={() => onPageChange(page - 1)} disabled={page <= 1}>‹ Prev</button>
+          <button className="button" onClick={() => onPageChange(page + 1)} disabled={page >= totalPages}>Next ›</button>
+          <button className="button" onClick={() => onPageChange(totalPages)} disabled={page >= totalPages}>Last »</button>
+        </div>
       </div>
 
       <div className="legend">
