@@ -200,6 +200,24 @@ body { margin: 0; background: #f7fafc; color: #0f172a; }
 .th-sort { cursor: pointer; user-select: none; }
 .sort-caret { margin-left: 4px; color: #94a3b8; }
 
+/* Pills for Δ vs baseline */
+.pill { display:inline-block; padding:2px 10px; border-radius:999px; font-weight:700; font-size:12px; }
+.pill-red { background:#fee2e2; color:#991b1b; border:1px solid #fecaca; }
+.pill-amber { background:#fffbeb; color:#92400e; border:1px solid #fde68a; }
+.pill-green { background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; }
+.pill-deepgreen { background:#dcfce7; color:#065f46; border:1px solid #86efac; }
+
+/* Elevated rows + left stripe already in inline style */
+.tr-elevated { background:#fff; border:1px solid #e5e7eb; }
+.tr-selected { outline:2px solid #0ea5e9; }
+.row-best { box-shadow: inset 0 0 0 9999px rgba(16,185,129,0.06); }
+.row-baseline { box-shadow: inset 0 0 0 9999px rgba(239,68,68,0.06); }
+.row-dim { opacity:0.6; }
+
+/* Small input for per-cement editor */
+.input.sm { height: 32px; padding: 4px 8px; font-size: 13px; }
+
+
 
 
 
