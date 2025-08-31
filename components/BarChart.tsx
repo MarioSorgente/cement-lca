@@ -18,7 +18,7 @@ export default function BarChart({
 
   if (!rows.length) return null
 
-  // same "worst non-baseline" computation as the table
+  // same "worst non-baseline" logic as table
   const worstNonBaselineId = useMemo(() => {
     const pool = rows.filter(r => r.cement.id !== opcBaselineId)
     if (!pool.length) return undefined
@@ -57,7 +57,7 @@ export default function BarChart({
     ? `Baseline (worst OPC): ${baselineLabel ?? '—'} · EF ${baselineEf.toFixed(2)} kg/kg`
     : 'Baseline: not available'
 
-  // split long cement names into two lines (kept, though we rotate 45° always)
+  // split long cement names into two lines (kept though we rotate 45°)
   const twoLine = (name: string) => {
     if (name.length <= 14) return [name, '']
     const mid = Math.floor(name.length / 2)
@@ -177,7 +177,7 @@ ${isBaseline ? 'Baseline' : `Reduction vs baseline: ${reductionLabel}`}`}</title
               )
             })}
 
-            {/* X labels at a constant -45° for readability */}
+            {/* X labels always -45° so appearing labels won't overlap */}
             {rows.map((r, i) => {
               const x = i * step + step / 2
               const [l1, l2] = twoLine(r.cement.cement_type)
@@ -197,7 +197,7 @@ ${isBaseline ? 'Baseline' : `Reduction vs baseline: ${reductionLabel}`}`}</title
         </svg>
       </div>
 
-      {/* Details / info panel with application “cards” */}
+      {/* Details / info panel with card-like application chips */}
       <div
         className="details-card"
         aria-live="polite"
@@ -207,7 +207,6 @@ ${isBaseline ? 'Baseline' : `Reduction vs baseline: ${reductionLabel}`}`}</title
           <>
             <div className="details-title">
               {selected.cement.cement_type}
-              {/* we removed Strength from table, but it can still be shown here if desired */}
               <span className="tag" style={{ marginLeft: 8 }}>{selected.cement.strength_class}</span>
             </div>
 
@@ -240,28 +239,23 @@ ${isBaseline ? 'Baseline' : `Reduction vs baseline: ${reductionLabel}`}`}</title
               </div>
             </div>
 
-            {/* Recommended applications as card-like chips */}
             {Array.isArray(selected.cement.applications) && selected.cement.applications.length > 0 && (
               <div>
                 <div className="details-label" style={{ marginBottom: 6 }}>Recommended applications</div>
-                <div style={{
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  gap: '8px'
-                }}>
+                <div style={{ display:'flex', flexWrap:'wrap', gap:'8px' }}>
                   {selected.cement.applications.map((a, idx) => (
                     <span
                       key={idx}
                       style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        padding: '6px 10px',
-                        borderRadius: 10,
-                        border: '1px solid #e2e8f0',
-                        background: '#ffffff',
-                        boxShadow: '0 2px 6px rgba(16,24,40,0.05)',
-                        fontSize: 12,
-                        color: '#0f172a'
+                        display:'inline-flex',
+                        alignItems:'center',
+                        padding:'6px 10px',
+                        borderRadius:10,
+                        border:'1px solid #e2e8f0',
+                        background:'#ffffff',
+                        boxShadow:'0 2px 6px rgba(16,24,40,0.05)',
+                        fontSize:12,
+                        color:'#0f172a'
                       }}
                     >
                       {a}
