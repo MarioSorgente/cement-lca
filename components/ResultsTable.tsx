@@ -1,179 +1,143 @@
-import { ResultRow, InputsState } from '../lib/types'
-import { formatNumber } from '../lib/calc'
-import { SortKey, SortDir } from '../lib/sort'
+import React from 'react'
+import { ResultRow } from '../lib/types'
 
-type PageSize = number | 'all'
+type SortKey =
+  | 'cement'
+  | 'strength'
+  | 'clinker'
+  | 'ef'
+  | 'dosage'
+  | 'a1a3'
+  | 'a4'
+  | 'total'
+  | 'reduction'
 
-function ReductionBadge({ pct }: { pct: number }) {
-  // color thresholds + directional label
-  let cls = 'chip-red'
-  if (pct > 0 && pct <= 10) cls = 'chip-yellow'
-  else if (pct > 10 && pct <= 20) cls = 'chip-green'
-  else if (pct > 20) cls = 'chip-deepgreen'
-  const label = pct >= 0 ? `↓ ${pct.toFixed(0)}%` : `↑ ${Math.abs(pct).toFixed(0)}%`
-  return <span className={`chip ${cls}`}>{label}</span>
-}
+type Scope = 'all' | 'compatible' | 'common'
 
-export default function ResultsTable({
-  rows, state, dosageOverrides, setDosageOverride, onDownload,
-  bestId, opcBaselineId, sortKey, sortDir, onSortChange,
-  search, onSearch, hideIncompatible, onToggleHideIncompatible,
-  page, totalPages, onPageChange, pageSize, onPageSizeChange, totalCount, usingPagination
-}: {
+interface Props {
   rows: ResultRow[]
-  state: InputsState
-  dosageOverrides: Record<string, number>
-  setDosageOverride: (id: string, v: number) => void
-  onDownload: () => void
-  bestId?: string
-  opcBaselineId?: string
+  pageSize: number
+  onPageSize: (n: number) => void
   sortKey: SortKey
-  sortDir: SortDir
+  sortDir: 'asc' | 'desc'
   onSortChange: (k: SortKey) => void
   search: string
-  onSearch: (v: string) => void
-  hideIncompatible: boolean
-  onToggleHideIncompatible: (v: boolean) => void
-  page: number
-  totalPages: number
-  onPageChange: (p: number) => void
-  pageSize: PageSize
-  onPageSizeChange: (n: PageSize) => void
-  totalCount: number
-  usingPagination: boolean
-}) {
-  const Th = ({ k, children }: { k: SortKey; children: React.ReactNode }) => (
-    <th onClick={() => onSortChange(k)} className="th-sort" role="button">
-      <span>{children}</span>
-      <span className={`sort-caret ${sortKey === k ? sortDir : ''}`} aria-hidden />
-    </th>
-  )
+  onSearch: (s: string) => void
+  scope: Scope
+  onScope: (s: Scope) => void
+  onExport: () => void
+  onRowClick?: (id: string) => void
+  selectedId?: string | null
+}
+
+export default function ResultsTableToolbar(props: Props) {
+  const {
+    rows, pageSize, onPageSize,
+    sortKey, sortDir, onSortChange,
+    search, onSearch,
+    scope, onScope,
+    onExport, onRowClick, selectedId
+  } = props
 
   return (
-    <div className="card">
-      <div className="card-head" style={{ gap: 12 }}>
-        <h2 style={{ marginRight: 'auto' }}>Comparison</h2>
-
+    <div className="table-toolbar">
+      <div className="toolbar-left">
         <input
           className="input"
-          style={{ width: 240 }}
-          placeholder="Search: CEM type or standard…"
+          placeholder="Search cement name…"
           value={search}
-          onChange={(e) => onSearch(e.target.value)}
+          onChange={e => onSearch(e.target.value)}
         />
-        <label className="badge" title="Hide exposure-incompatible">
-          <input
-            type="checkbox"
-            checked={hideIncompatible}
-            onChange={(e) => onToggleHideIncompatible(e.target.checked)}
-            style={{ marginRight: 6 }}
-          />
-          Hide incompatible
-        </label>
-
-        {/* Page size selector with “All” */}
         <select
           className="select"
-          value={pageSize === 'all' ? 'all' : String(pageSize)}
-          onChange={(e) => {
-            const v = e.target.value === 'all' ? 'all' : Number(e.target.value)
-            onPageSizeChange(v)
-          }}
-          style={{ width: 130 }}
-          title="Rows per view"
+          value={scope}
+          onChange={e => onScope(e.target.value as Scope)}
+          title="Row filter"
+          aria-label="Row filter"
         >
           <option value="all">All rows</option>
-          {[10,15,20,50].map(n => <option key={n} value={n}>{n}/page</option>)}
+          <option value="compatible">Compatible only</option>
+          <option value="common">Most common</option>
         </select>
-
-        <button className="button" onClick={onDownload}>Export CSV</button>
+      </div>
+      <div className="toolbar-right">
+        <select
+          className="select"
+          value={pageSize}
+          onChange={e => onPageSize(parseInt(e.target.value, 10))}
+          aria-label="Rows per page"
+          title="Rows per page"
+        >
+          <option value={10}>10/page</option>
+          <option value={20}>20/page</option>
+          <option value={50}>50/page</option>
+          <option value={100}>100/page</option>
+        </select>
+        <button className="btn" onClick={onExport}>Export CSV</button>
       </div>
 
-      <div className="table-wrap">
+      {/* Table */}
+      <div className="table-scroll">
         <table className="table">
           <thead>
             <tr>
-              <Th k="cement">Cement</Th>
-              <Th k="strength">Strength</Th>
-              <Th k="clinker">Clinker</Th>
-              <th>SCMs</th>
-              <Th k="ef">EF (kgCO₂/kg)</Th>
-              <Th k="reduction">CO₂ reduction vs baseline</Th>
-              <Th k="dosage">Dosage (kg/m³)</Th>
-              <Th k="a1a3">CO₂e A1–A3 (kg/m³)</Th>
-              <Th k="a4">A4 (kg)</Th>
-              <Th k="total">Total (element kg)</Th>
-              <th>Exposure</th>
-              <th>Notes</th>
+              <Th k="cement" label="Cement" sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} />
+              <Th k="strength" label="Strength" sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} />
+              <Th k="clinker" label="Clinker" sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} />
+              <Th k="ef" label="EF (kgCO₂/kg)" sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} />
+              <Th k="dosage" label="Dosage (kg/m³)" sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} />
+              <Th k="a1a3" label="CO₂e A1–A3 (kg/m³)" sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} />
+              <Th k="a4" label="A4 (kg)" sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} />
+              <Th k="total" label="Total element (kg)" sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} />
+              <Th k="reduction" label="Δ vs baseline" sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} />
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 ? (
-              <tr><td colSpan={12} className="small">No rows. Try different filters or search.</td></tr>
-            ) : rows.map((r) => {
-              const scms = r.cement.scms.map(s => `${s.type}:${Math.round(s.fraction*100)}%`).join('+') || 'None'
-              const incompatible = !r.exposureCompatible
-              const rowClass =
-                (r.cement.id === bestId ? 'row-best ' : '') +
-                (r.cement.id === opcBaselineId ? 'row-baseline ' : '') +
-                (incompatible ? 'dimmed' : '')
+            {rows.map(r => {
+              const isSel = selectedId === r.cement.id
               return (
-                <tr key={r.cement.id} className={rowClass}>
+                <tr key={r.cement.id} className={isSel ? 'tr-selected' : undefined} onClick={() => onRowClick?.(r.cement.id)}>
                   <td>
-                    <div className="cell-title">{r.cement.cement_type}</div>
-                    <div className="small">{r.tags.map(t => <span key={t} className="tag">{t}</span>)}</div>
+                    <div className="cell-title">
+                      <div className="title">{r.cement.cement_type}</div>
+                      <div className="subtitle">{r.cement.scms.length ? r.cement.scms.map(s => s.type).join('+') : 'OPC'}</div>
+                    </div>
                   </td>
-                  <td>{r.cement.strength_class} <span className="tag" style={{ marginLeft: 6 }}>{r.cement.early_strength}</span></td>
+                  <td>{r.cement.strength_class}</td>
                   <td>{Math.round(r.cement.clinker_fraction * 100)}%</td>
-                  <td>{scms}</td>
                   <td>{r.cement.co2e_per_kg_binder_A1A3.toFixed(3)}</td>
-                  <td><ReductionBadge pct={r.gwpReductionPct} /></td>
-                  <td>
-                    {state.dosageMode === 'perCement' ? (
-                      <input
-                        className="input"
-                        style={{ width: 110 }}
-                        type="number"
-                        value={Math.round(r.dosageUsed)}
-                        onChange={(e) => setDosageOverride(r.cement.id, Number(e.target.value) || 0)}
-                      />
-                    ) : (
-                      <span>{formatNumber(r.dosageUsed)}</span>
-                    )}
-                  </td>
-                  <td>{formatNumber(r.co2ePerM3_A1A3)}</td>
-                  <td>{state.includeA4 ? formatNumber(r.a4Transport) : '—'}</td>
-                  <td className="cell-strong">{formatNumber(r.totalElement)}</td>
-                  <td>{r.exposureCompatible ? '✓' : 'Check'}</td>
-                  <td className="small">{r.cement.notes}</td>
+                  <td>{Math.round(r.dosageUsed)}</td>
+                  <td>{Math.round(r.co2ePerM3_A1A3)}</td>
+                  <td>{Math.round(r.a4Transport)}</td>
+                  <td>{Math.round(r.totalElement)}</td>
+                  <td>{r.gwpReductionPct >= 0 ? `↓ ${r.gwpReductionPct.toFixed(0)}%` : `↑ ${Math.abs(r.gwpReductionPct).toFixed(0)}%`}</td>
                 </tr>
               )
             })}
           </tbody>
         </table>
       </div>
-
-      {/* Pagination footer (hidden when pageSize = All) */}
-      {usingPagination && (
-        <div className="table-footer">
-          <div className="small">{rows.length ? `Page ${page} of ${totalPages} · ${totalCount} total` : '—'}</div>
-          <div className="pager">
-            <button className="button" onClick={() => onPageChange(1)} disabled={page <= 1}>« First</button>
-            <button className="button" onClick={() => onPageChange(page - 1)} disabled={page <= 1}>‹ Prev</button>
-            <button className="button" onClick={() => onPageChange(page + 1)} disabled={page >= totalPages}>Next ›</button>
-            <button className="button" onClick={() => onPageChange(totalPages)} disabled={page >= totalPages}>Last »</button>
-          </div>
-        </div>
-      )}
-
-      <div className="legend">
-        <span className="legend-swatch best" /> Best (lowest total)
-        <span className="legend-swatch baseline" /> OPC baseline
-        <span className="chip chip-deepgreen" /> &gt;20% better
-        <span className="chip chip-green" /> 10–20%
-        <span className="chip chip-yellow" /> ≤10%
-        <span className="chip chip-red" /> ≤0%
-      </div>
     </div>
+  )
+}
+
+function Th({
+  k, label, sortKey, sortDir, onSortChange
+}: {
+  k: SortKey
+  label: string
+  sortKey: SortKey
+  sortDir: 'asc' | 'desc'
+  onSortChange: (k: SortKey) => void
+}) {
+  const active = sortKey === k
+  return (
+    <th
+      onClick={() => onSortChange(k)}
+      className={active ? `th-sort th-${sortDir}` : 'th-sort'}
+    >
+      {label}
+      {active ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}
+    </th>
   )
 }
