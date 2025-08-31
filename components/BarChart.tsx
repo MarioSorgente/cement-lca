@@ -56,46 +56,51 @@ export default function BarChart({
 
   const onBarActivate = (id: string) => setSelectedId(prev => (prev === id ? null : id))
 
-  // ---- helper to render the label above a bar (baseline gets special treatment) ----
-  function textAboveBar(
-    x: number,
-    y: number,
-    barW: number,
+  // ---- helpers for label pills (never overlapping / clipped) ----
+  const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v))
+
+  function labelTextAndColors(isBaseline: boolean, pct: number) {
+    const text = isBaseline ? 'Baseline' : (pct >= 0 ? `↓ ${pct.toFixed(0)}%` : `↑ ${Math.abs(pct).toFixed(0)}%`)
+    const textFill = isBaseline ? '#991b1b' : '#0f172a'
+    const bg = isBaseline ? '#fee2e2' : '#e5e7eb'
+    const stroke = isBaseline ? '#fca5a5' : '#e2e8f0'
+    return { text, textFill, bg, stroke }
+  }
+
+  function drawLabelPill(
+    xCenter: number,
+    yBarTop: number,
     isBaseline: boolean,
     pct: number
   ) {
-    const label = isBaseline
-      ? 'Baseline'
-      : pct >= 0
-        ? `↓ ${pct.toFixed(0)}%`
-        : `↑ ${Math.abs(pct).toFixed(0)}%`
+    const padX = 6, padY = 3, radius = 8
+    const { text, textFill, bg, stroke } = labelTextAndColors(isBaseline, pct)
+    // rough text width estimate (SVG has no easy pre-measure)
+    const estTextW = Math.max(24, text.length * 6.2)
+    const pillW = estTextW + padX * 2
+    const pillH = 18
 
-    // Baseline floats higher with a connector so it never overlaps the bar top
-    const labelY = isBaseline ? y - 22 : Math.max(14, y - 8)
-    const connectorY1 = y - 4
-    const connectorY2 = labelY + 4
+    // Compute a target Y above the bar, then clamp within chart
+    const desired = isBaseline ? yBarTop - 22 : yBarTop - 10
+    const y = clamp(desired, 12, ih - 6) // keep text inside the plot area
+    const x = xCenter - pillW / 2
 
     return (
       <g>
+        {/* connector only for baseline */}
         {isBaseline && (
           <line
-            x1={x + barW / 2}
-            x2={x + barW / 2}
-            y1={connectorY1}
-            y2={connectorY2}
+            x1={xCenter}
+            x2={xCenter}
+            y1={Math.max(4, yBarTop - 4)}
+            y2={y + pillH - 4}
             stroke="#991b1b"
             strokeWidth={1}
           />
         )}
-        <text
-          x={x + barW / 2}
-          y={labelY}
-          textAnchor="middle"
-          fontSize="12"
-          fill={isBaseline ? '#991b1b' : '#334155'}
-          fontWeight={isBaseline ? 700 : 500}
-        >
-          {label}
+        <rect x={x} y={y - pillH + 2} width={pillW} height={pillH} rx={radius} fill={bg} stroke={stroke} />
+        <text x={xCenter} y={y - 4} textAnchor="middle" fontSize="12" fill={textFill} fontWeight={isBaseline ? 700 : 600}>
+          {text}
         </text>
       </g>
     )
@@ -156,8 +161,8 @@ export default function BarChart({
                     stroke={isSelected ? '#0ea5e9' : (r.cement.id === bestId ? '#065f46' : isBaseline ? '#991b1b' : 'none')}
                     strokeWidth={isSelected ? 2 : (r.cement.id === bestId || isBaseline ? 1.5 : 0)}
                   />
-                  {/* Non-overlapping label above bar */}
-                  {textAboveBar(x, y, bar, isBaseline, r.gwpReductionPct)}
+                  {/* Label pill (never clips/overlaps) */}
+                  {drawLabelPill(x + bar / 2, y, isBaseline, r.gwpReductionPct)}
                   {/* Tooltip */}
                   <title>{`${r.cement.cement_type}
 Total: ${formatNumber(r.totalElement)} kg
@@ -220,7 +225,7 @@ ${isBaseline ? 'Baseline' : `Reduction vs baseline: ${reductionLabel}`}`}</title
                 <div className="details-value">{formatNumber(selected.a4Transport)} kg</div>
               </div>
               <div>
-                <div className="details-label">Total element</div>
+                <div className="details-label">Total CO₂ emission</div>
                 <div className="details-value">{formatNumber(selected.totalElement)} kg</div>
               </div>
             </div>
