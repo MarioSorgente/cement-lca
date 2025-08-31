@@ -14,7 +14,8 @@
     "typical_w_c_range": [0.45, 0.60],
     "compatible_exposure_classes": ["XC1","XC2","XC3","XC4","XF1"],
     "declared_scope": "A1-A3",
-    "notes": "Baseline OPC; reliable early strength; highest CO₂ among options."
+    "notes": "Baseline OPC; reliable early strength; highest CO₂ among options.",
+    "applications": ["General purpose cast-in-place", "Conventional building frames", "Precast (standard cycles)", "Cold to mild climates with normal curing"]
   },
   {
     "id": "cem1-425r",
@@ -31,7 +32,8 @@
     "typical_w_c_range": [0.42, 0.58],
     "compatible_exposure_classes": ["XC1","XC2","XC3","XC4","XF1"],
     "declared_scope": "A1-A3",
-    "notes": "Rapid early strength; slightly higher dosage typical for fast cycles."
+    "notes": "Rapid early strength; slightly higher dosage typical for fast cycles.",
+    "applications": ["Precast with fast turnover", "Post-tensioned slabs (early stripping)", "Rapid repair works", "Cold-weather concreting with accelerated schedules"]
   },
   {
     "id": "cem1-525n",
@@ -48,7 +50,8 @@
     "typical_w_c_range": [0.38, 0.52],
     "compatible_exposure_classes": ["XC1","XC2","XC3","XC4","XD1","XS1","XF2"],
     "declared_scope": "A1-A3",
-    "notes": "High strength grade; use when smaller sections/early stripping are critical."
+    "notes": "High strength grade; use when smaller sections/early stripping are critical.",
+    "applications": ["High-strength elements", "Heavily loaded columns/walls", "Thin precast sections", "Fast early demoulding where SCM blends are unavailable"]
   },
   {
     "id": "cem2a-l-325n",
@@ -65,7 +68,8 @@
     "typical_w_c_range": [0.48, 0.62],
     "compatible_exposure_classes": ["XC1","XC2","XC3"],
     "declared_scope": "A1-A3",
-    "notes": "Limestone addition reduces CO₂; avoid aggressive chloride/sulfate exposures."
+    "notes": "Limestone addition reduces CO₂; avoid aggressive chloride/sulfate exposures.",
+    "applications": ["Masonry blocks and screeds", "Internal slabs and toppings", "Low-exposure structural concrete (XC1–XC2)", "Architectural concrete with light color"]
   },
   {
     "id": "cem2a-l-425n",
@@ -82,7 +86,8 @@
     "typical_w_c_range": [0.45, 0.60],
     "compatible_exposure_classes": ["XC1","XC2","XC3","XC4"],
     "declared_scope": "A1-A3",
-    "notes": "Good all-rounder with modest CO₂ reduction."
+    "notes": "Good all-rounder with modest CO₂ reduction.",
+    "applications": ["General structural concrete", "Floors and beams with normal stripping", "Ready-mix in mild to moderate exposure"]
   },
   {
     "id": "cem2b-l-425n",
@@ -99,7 +104,8 @@
     "typical_w_c_range": [0.46, 0.62],
     "compatible_exposure_classes": ["XC1","XC2","XC3","XC4"],
     "declared_scope": "A1-A3",
-    "notes": "Higher limestone; watch early strength at low temps."
+    "notes": "Higher limestone; watch early strength at low temps.",
+    "applications": ["Low-carbon general concrete", "Architectural fair-faced concrete", "Pavements and slabs in mild climates"]
   },
   {
     "id": "cem2a-s-425n",
@@ -116,7 +122,8 @@
     "typical_w_c_range": [0.44, 0.58],
     "compatible_exposure_classes": ["XC1","XC2","XC3","XC4","XS1","XD1"],
     "declared_scope": "A1-A3",
-    "notes": "S = GGBS (slag). Slight chloride resistance improvement over OPC."
+    "notes": "S = GGBS (slag). Slight chloride resistance improvement over OPC.",
+    "applications": ["Parking decks (de-icing salts)", "Coastal XC/XS1 exposure", "Foundations with moderate heat control"]
   },
   {
     "id": "cem2b-s-425n",
@@ -133,7 +140,8 @@
     "typical_w_c_range": [0.44, 0.58],
     "compatible_exposure_classes": ["XC1","XC2","XC3","XC4","XS1","XS2","XD1","XD2","XF2"],
     "declared_scope": "A1-A3",
-    "notes": "Good balance of CO₂ cut and durability in chloride environments."
+    "notes": "Good balance of CO₂ cut and durability in chloride environments.",
+    "applications": ["Bridge substructures near marine", "Car parks (chlorides)", "Water retaining structures", "High-durability urban infrastructure"]
   },
   {
     "id": "cem2a-v-425n",
@@ -150,7 +158,8 @@
     "typical_w_c_range": [0.46, 0.62],
     "compatible_exposure_classes": ["XC1","XC2","XC3","XC4","XF1"],
     "declared_scope": "A1-A3",
-    "notes": "V = fly ash. Moderate CO₂ reduction; slower early strength in cold weather."
+    "notes": "V = fly ash. Moderate CO₂ reduction; slower early strength in cold weather.",
+    "applications": ["Mass footings (reduced heat)", "Raft slabs", "Large pours with temperature control", "Pavements in mild to warm climates"]
   },
   {
     "id": "cem2b-v-425n",
@@ -167,7 +176,8 @@
     "typical_w_c_range": [0.46, 0.62],
     "compatible_exposure_classes": ["XC1","XC2","XC3","XC4","XF2"],
     "declared_scope": "A1-A3",
-    "notes": "Higher fly ash; check early-age strength and curing."
+    "notes": "Higher fly ash; check early-age strength and curing.",
+    "applications": ["Dams and thick walls (low heat)", "Mat foundations", "Piles and pile caps", "Industrial floors (warm climates)"]
   },
   {
     "id": "cem2a-ll-425n",
@@ -184,7 +194,8 @@
     "typical_w_c_range": [0.45, 0.60],
     "compatible_exposure_classes": ["XC1","XC2","XC3","XC4"],
     "declared_scope": "A1-A3",
-    "notes": "LL = high-purity limestone; similar to A-L."
+    "notes": "LL = high-purity limestone; similar to A-L.",
+    "applications": ["Light-colored architectural concrete", "General structural concrete", "Mild exposure urban works"]
   },
   {
     "id": "cem3a-425n",
@@ -201,7 +212,8 @@
     "typical_w_c_range": [0.42, 0.58],
     "compatible_exposure_classes": ["XC1","XC2","XC3","XC4","XS1","XS2","XS3","XD1","XD2","XD3","XF2","XA2"],
     "declared_scope": "A1-A3",
-    "notes": "Slag-rich; strong chloride resistance; slower early strength in cold."
+    "notes": "Slag-rich; strong chloride resistance; slower early strength in cold.",
+    "applications": ["Marine structures (piers, quays)", "Coastal bridges", "Wastewater/industrial exposure", "Water-retaining structures"]
   },
   {
     "id": "cem3b-425n",
@@ -218,7 +230,8 @@
     "typical_w_c_range": [0.42, 0.58],
     "compatible_exposure_classes": ["XC1","XC2","XC3","XC4","XS1","XS2","XS3","XD1","XD2","XD3","XF2","XA2","XA3"],
     "declared_scope": "A1-A3",
-    "notes": "Very low CO₂; excellent in marine/chloride; watch setting/heat in winter."
+    "notes": "Very low CO₂; excellent in marine/chloride; watch setting/heat in winter.",
+    "applications": ["Harbors and jetties (chlorides)", "Immersed tunnels", "Offshore foundations", "Mass concrete with durability priority"]
   },
   {
     "id": "cem4a-p-425n",
@@ -235,7 +248,8 @@
     "typical_w_c_range": [0.46, 0.62],
     "compatible_exposure_classes": ["XC1","XC2","XC3","XC4","XF1"],
     "declared_scope": "A1-A3",
-    "notes": "Natural pozzolana; good long-term strength; slower early gain."
+    "notes": "Natural pozzolana; good long-term strength; slower early gain.",
+    "applications": ["Architectural concrete (warm climates)", "Mass pours with moderate heat", "Pavements and blocks", "Low-alkali mixes"]
   },
   {
     "id": "cem4b-p-425n",
@@ -252,7 +266,8 @@
     "typical_w_c_range": [0.46, 0.64],
     "compatible_exposure_classes": ["XC1","XC2","XC3","XC4","XF1"],
     "declared_scope": "A1-A3",
-    "notes": "Higher pozzolana; best with warm curing/longer formwork time."
+    "notes": "Higher pozzolana; best with warm curing/longer formwork time.",
+    "applications": ["Large slabs/walls in hot climates", "Precast blocks and pavers", "Where alkali-silica mitigation is desired"]
   },
   {
     "id": "lc3-50-425n",
@@ -269,7 +284,8 @@
     "typical_w_c_range": [0.44, 0.60],
     "compatible_exposure_classes": ["XC1","XC2","XC3","XC4","XD1","XS1"],
     "declared_scope": "A1-A3",
-    "notes": "Calcined clay + limestone; strong CO₂ cut; ensure clay availability."
+    "notes": "Calcined clay + limestone; strong CO₂ cut; ensure clay availability.",
+    "applications": ["Low-carbon general construction", "Footings and columns", "Urban infrastructure (XC/XD1)", "Projects targeting embodied-carbon cuts"]
   },
   {
     "id": "cem5a-sv-325n",
@@ -286,7 +302,8 @@
     "typical_w_c_range": [0.46, 0.62],
     "compatible_exposure_classes": ["XC1","XC2","XC3","XC4","XS1","XD1"],
     "declared_scope": "A1-A3",
-    "notes": "Composite cement; balanced SCM blend; good general-purpose low-carbon."
+    "notes": "Composite cement; balanced SCM blend; good general-purpose low-carbon.",
+    "applications": ["General low-carbon ready-mix", "Urban infrastructure", "Piles and footings", "Bridge abutments (XS1/XD1)"]
   },
   {
     "id": "cem5b-sv-325n",
@@ -303,7 +320,8 @@
     "typical_w_c_range": [0.46, 0.64],
     "compatible_exposure_classes": ["XC1","XC2","XC3","XC4","XS1","XS2","XD1","XD2"],
     "declared_scope": "A1-A3",
-    "notes": "Very low CO₂; strong chloride resistance; slower early gain."
+    "notes": "Very low CO₂; strong chloride resistance; slower early gain.",
+    "applications": ["Marine and de-icing exposures", "High-durability coastal works", "Mass pours where heat must be controlled", "Long-life infrastructure"]
   },
   {
     "id": "cem2c-m-sll-425n",
@@ -320,7 +338,8 @@
     "typical_w_c_range": [0.44, 0.60],
     "compatible_exposure_classes": ["XC1","XC2","XC3","XC4","XS1","XD1"],
     "declared_scope": "A1-A3",
-    "notes": "Newer multi-component grade; good availability where slag exists."
+    "notes": "Newer multi-component grade; good availability where slag exists.",
+    "applications": ["General low-carbon structural concrete", "Parking structures", "Marine splash/XS1 with proper cover", "Bridges (approach slabs)"]
   },
   {
     "id": "cem2c-m-pll-425n",
@@ -337,7 +356,8 @@
     "typical_w_c_range": [0.46, 0.62],
     "compatible_exposure_classes": ["XC1","XC2","XC3","XC4","XF1"],
     "declared_scope": "A1-A3",
-    "notes": "Pozzolana + limestone blend; stable long-term strength."
+    "notes": "Pozzolana + limestone blend; stable long-term strength.",
+    "applications": ["Architectural concrete", "Mass elements in warm climates", "Road pavements and slabs"]
   },
   {
     "id": "cem2b-m-svll-425n",
@@ -354,7 +374,8 @@
     "typical_w_c_range": [0.44, 0.62],
     "compatible_exposure_classes": ["XC1","XC2","XC3","XC4","XD1","XS1","XF2"],
     "declared_scope": "A1-A3",
-    "notes": "Balanced multi-SCM; versatile; check supplier performance curves."
+    "notes": "Balanced multi-SCM; versatile; check supplier performance curves.",
+    "applications": ["Low-carbon general concrete", "Urban bridges and retaining walls", "XS1/XD1 structures with good curing", "Precast with standard cycles"]
   },
   {
     "id": "cem2a-ll-325r",
@@ -371,6 +392,7 @@
     "typical_w_c_range": [0.48, 0.62],
     "compatible_exposure_classes": ["XC1","XC2","XC3"],
     "declared_scope": "A1-A3",
-    "notes": "Rapid early strength at low grade; suitable for mild exposures."
+    "notes": "Rapid early strength at low grade; suitable for mild exposures.",
+    "applications": ["Blocks and small precast with fast demoulding", "Thin panels (mild exposure)", "Interior slabs and toppings"]
   }
 ]
