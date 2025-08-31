@@ -41,14 +41,13 @@ export default function Home() {
   // ----- Calculate all rows from inputs -----
   const allRows: ResultRow[] = useMemo(() => {
     const rows = computeRows(inputs, perCementDosage)
-    // keep selected highlight valid
     if (selectedId && !rows.find(r => r.cement.id === selectedId)) {
       setSelectedId(null)
     }
     return rows
   }, [inputs, perCementDosage])
 
-  // Baseline (worst OPC) from helper
+  // Baseline (worst OPC)
   const baseline = opcWorstBaseline(allRows)
   const baselineId = baseline?.cement.id
 
@@ -99,7 +98,7 @@ export default function Home() {
     })
   }, [filtered, sortKey, sortDir])
 
-  // Paging (simple “show first N rows” style)
+  // Paging (simple “show first N rows”)
   const rowsForPage = useMemo(() => rowsSorted.slice(0, pageSize), [rowsSorted, pageSize])
 
   return (
@@ -109,7 +108,7 @@ export default function Home() {
         <div className="card-head">
           <h2>Design Inputs</h2>
         </div>
-        {/* Inputs component expects { state, setState } */}
+        {/* Inputs expects { state, setState } */}
         <Inputs state={inputs} setState={setInputs} />
       </div>
 
@@ -129,7 +128,6 @@ export default function Home() {
         scope={scope}
         onScope={setScope}
         onExport={() => {
-          // basic CSV export of current page
           const header = [
             'cement', 'clinker(%)','EF(kgCO2/kg)',
             'dosage(kg/m3)','A1A3(kg/m3)','A4(kg)','total(kg)','reduction(%)'
@@ -168,7 +166,7 @@ export default function Home() {
 
       {/* Chart */}
       <BarChart
-        rows={rowsSorted}                 // show all bars
+        rows={rowsSorted}
         bestId={bestId}
         opcBaselineId={baselineId}
         baselineEf={baseline?.cement.co2e_per_kg_binder_A1A3}
