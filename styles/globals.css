@@ -166,3 +166,29 @@ body { margin: 0; background: #f7fafc; color: #0f172a; }
 .ihelp-container { display: inline-flex; align-items: center; gap: 6px; }
 .ihelp .tooltip-icon { width: 16px; height: 16px; line-height: 16px; }
 .ihelp .tooltip-box { white-space: normal; width: 280px; }
+
+/* Tooltips: hidden by default; show on hover */
+.tooltip-box { display: none; }
+.tooltip-wrapper:hover .tooltip-box { display: block; }
+
+/* Put the info balloon to the right of the icon */
+.tooltip-right {
+  position: absolute;
+  top: 50%;
+  left: 22px;              /* to the right of the icon */
+  transform: translateY(-50%);
+  max-width: 320px;
+  white-space: normal;
+  background: #1e293b;
+  color: #fff;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  box-shadow: 0 8px 24px rgba(16,24,40,0.2);
+  z-index: 30;
+}
+
+/* Keep icon tight */
+.ihelp-container { display: inline-flex; align-items: center; gap: 6px; }
+.ihelp .tooltip-icon { width: 16px; height: 16px; line-height: 16px; }
+
