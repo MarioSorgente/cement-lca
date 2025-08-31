@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Head from 'next/head'
 import Inputs from '../components/Inputs'
-import ResultsTableToolbar from '../components/ResultsTable'
+import ResultsTable from '../components/ResultsTable'
 import BarChart from '../components/BarChart'
 import { computeRows, opcWorstBaseline } from '../lib/calc'
 import { Cement, InputsState, ResultRow } from '../lib/types'
@@ -11,6 +11,8 @@ type Scope = 'all' | 'compatible' | 'common'
 
 export default function Home() {
   const [cements, setCements] = useState<Cement[]>([])
+  const [loadError, setLoadError] = useState<string | null>(null)
+
   const [inputs, setInputs] = useState<InputsState>({
     concreteStrength: 'C25/30',
     exposureClass: 'XC2',
@@ -40,14 +42,28 @@ export default function Home() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
   useEffect(() => {
-    fetch('/data/cements.json')
-      .then((r) => r.json())
-      .then(setCements)
+    let cancelled = false
+    async function load() {
+      setLoadError(null)
+      try {
+        const res = await fetch('/data/cements.json', { cache: 'no-store' })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const data: Cement[] = await res.json()
+        if (!Array.isArray(data)) throw new Error('Invalid dataset format')
+        if (!cancelled) setCements(data)
+      } catch (e: any) {
+        console.error('Failed to load cements.json:', e)
+        if (!cancelled) setLoadError('Could not load /data/cements.json. Please validate the JSON file.')
+      }
+    }
+    load()
+    return () => { cancelled = true }
   }, [])
 
+  // build rows
   const rowsAll: ResultRow[] = useMemo(() => computeRows(cements, inputs), [cements, inputs])
 
-  // filter by text and scope
+  // filter by text + scope
   const rowsFiltered = useMemo(() => {
     let r = rowsAll
     if (search.trim()) {
@@ -93,7 +109,9 @@ export default function Home() {
     })
   }, [rowsFiltered, sortKey, sortDir])
 
+  // baseline for highlights
   const baseline = useMemo(() => opcWorstBaseline(cements), [cements])
+  const hasRows = rowsSorted.length > 0
 
   return (
     <>
@@ -102,23 +120,42 @@ export default function Home() {
       </Head>
 
       <div className="container">
-        {/* NOTE: Inputs component expects props: state + setState */}
+        {loadError && (
+          <div
+            style={{
+              background: '#fee2e2',
+              border: '1px solid #fecaca',
+              color: '#7f1d1d',
+              padding: '8px 12px',
+              borderRadius: 8,
+              marginBottom: 12,
+              fontSize: 14,
+            }}
+          >
+            {loadError}
+          </div>
+        )}
+
+        {/* Inputs (expects state + setState) */}
         <Inputs state={inputs} setState={setInputs} />
 
-        {/* Table + controls */}
-        <ResultsTableToolbar
+        {/* Table with crispy design + filters */}
+        <ResultsTable
           rows={rowsSorted.slice(0, pageSize)}
           pageSize={pageSize}
           onPageSize={setPageSize}
           sortKey={sortKey}
           sortDir={sortDir}
-          onSortChange={setSortKey}
+          onSortChange={(k) => {
+            setSortKey(k)
+            // toggle direction if clicking same column
+            setSortDir((d) => (k === sortKey ? (d === 'asc' ? 'desc' : 'asc') : 'asc'))
+          }}
           search={search}
           onSearch={setSearch}
           scope={scope}
           onScope={setScope}
           onExport={() => {
-            // minimal CSV export of currently sorted/filtered rows
             const header = [
               'Cement',
               'Strength',
@@ -154,16 +191,26 @@ export default function Home() {
           }}
           onRowClick={setSelectedId}
           selectedId={selectedId}
+          bestId={rowsSorted[0]?.cement.id}
+          baselineId={baseline?.id}
         />
 
+        {!hasRows && (
+          <div style={{ color: '#475569', fontSize: 14, marginTop: 8 }}>
+            No rows to display. Check your filters or data file.
+          </div>
+        )}
+
         {/* Chart */}
-        <BarChart
-          rows={rowsSorted}
-          bestId={rowsSorted[0]?.cement.id}
-          opcBaselineId={baseline?.id}
-          baselineEf={baseline?.ef}
-          baselineLabel={baseline?.label}
-        />
+        {hasRows && (
+          <BarChart
+            rows={rowsSorted}
+            bestId={rowsSorted[0]?.cement.id}
+            opcBaselineId={baseline?.id}
+            baselineEf={baseline?.ef}
+            baselineLabel={baseline?.label}
+          />
+        )}
       </div>
     </>
   )
