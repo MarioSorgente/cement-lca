@@ -7,9 +7,8 @@ import { getDefaultDosage } from '../lib/dosage'
 import { toResultRows } from '../lib/calc'
 import { tagsForCement } from '../lib/tags'
 import { downloadCSV } from '../lib/download'
+import { SortKey, SortDir } from '../lib/sort'
 
-type SortKey = 'cement'|'strength'|'clinker'|'ef'|'dosage'|'a1a3'|'a4'|'total'
-type SortDir = 'asc'|'desc'
 type PageSize = number | 'all'
 
 export default function Home() {
@@ -35,6 +34,7 @@ export default function Home() {
     filters: { OPC: true, Slag: true, FlyAsh: true, Pozzolana: true, Limestone: true, CalcinedClay: true, Composite: true }
   })
 
+  // Load dataset
   useEffect(() => { fetch('/data/cements.json').then(r => r.json()).then(setCements) }, [])
 
   const handleSortChange = (key: SortKey) => {
@@ -42,7 +42,7 @@ export default function Home() {
     else { setSortKey(key); setSortDir('asc') }
   }
 
-  // Tag filters
+  // Filter by category chips
   const tagFiltered = useMemo(() => {
     return cements.filter(c => {
       const tags = new Set(tagsForCement(c))
@@ -87,14 +87,15 @@ export default function Home() {
     const factor = sortDir === 'asc' ? 1 : -1
     const val = (r: ResultRow) => {
       switch (sortKey) {
-        case 'cement':   return r.cement.cement_type
-        case 'strength': return r.cement.strength_class
-        case 'clinker':  return r.cement.clinker_fraction
-        case 'ef':       return r.cement.co2e_per_kg_binder_A1A3
-        case 'dosage':   return r.dosageUsed
-        case 'a1a3':     return r.co2ePerM3_A1A3
-        case 'a4':       return r.a4Transport
-        case 'total':    return r.totalElement
+        case 'cement':    return r.cement.cement_type
+        case 'strength':  return r.cement.strength_class
+        case 'clinker':   return r.cement.clinker_fraction
+        case 'ef':        return r.cement.co2e_per_kg_binder_A1A3
+        case 'reduction': return r.gwpReductionPct
+        case 'dosage':    return r.dosageUsed
+        case 'a1a3':      return r.co2ePerM3_A1A3
+        case 'a4':        return r.a4Transport
+        case 'total':     return r.totalElement
       }
     }
     return [...searched].sort((a,b) => (val(a) > val(b) ? 1 : val(a) < val(b) ? -1 : 0) * factor)
@@ -109,7 +110,7 @@ export default function Home() {
   const end = usingPagination ? start + (pageSize as number) : totalRows
   const pageRows = sorted.slice(start, end)
 
-  // IDs for highlight
+  // Highlights
   const bestId = sorted[0]?.cement.id
   const opcBaselineId = useMemo(() => {
     const opcRows = sorted.filter(r => r.cement.scms.length === 0)
@@ -125,7 +126,7 @@ export default function Home() {
   // Reset page when view changes
   useEffect(() => { setPage(1) }, [search, hideIncompatible, pageSize, sortKey, sortDir, state])
 
-  // Banner text for chart/table view
+  // Banner text
   const bannerText = usingPagination
     ? `Showing: Page ${pageSafe} of ${totalPages} · ${(pageSize as number)} rows/page`
     : `Showing: All rows (${totalRows})`
@@ -160,12 +161,12 @@ export default function Home() {
         state={state}
         dosageOverrides={dosageOverrides}
         setDosageOverride={setDosageOverride}
-        onDownload={() => downloadCSV(sorted, state)}   // export full current view
+        onDownload={() => downloadCSV(sorted, state)}   // export full filtered/sorted view
         bestId={bestId}
         opcBaselineId={opcBaselineId}
         sortKey={sortKey}
         sortDir={sortDir}
-        onSortChange={(k) => handleSortChange(k)}
+        onSortChange={(k: SortKey) => handleSortChange(k)}
         search={search}
         onSearch={setSearch}
         hideIncompatible={hideIncompatible}
