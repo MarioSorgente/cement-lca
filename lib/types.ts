@@ -23,8 +23,9 @@ export interface Cement {
   compatible_exposure_classes: string[]
   declared_scope: 'A1-A3' | 'A1-A5'
   notes?: string
-  /** NEW: recommended applications to surface in the details card */
   applications?: string[]
+  /** NEW: marks cements widely produced/used */
+  is_common?: boolean
 }
 
 export interface InputsState {
@@ -61,6 +62,5 @@ export interface ResultRow {
   totalElement: number
   exposureCompatible: boolean
   tags: string[]
-  /** % reduction vs baseline EF (dynamic baseline = worst OPC). Can be negative. */
   gwpReductionPct: number
 }
