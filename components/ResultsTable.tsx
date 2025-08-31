@@ -1,8 +1,7 @@
 import { ResultRow, InputsState } from '../lib/types'
 import { formatNumber } from '../lib/calc'
+import { SortKey, SortDir } from '../lib/sort'
 
-type SortKey = 'cement'|'strength'|'clinker'|'ef'|'dosage'|'a1a3'|'a4'|'total'|'reduction'
-type SortDir = 'asc'|'desc'
 type PageSize = number | 'all'
 
 function ReductionBadge({ pct }: { pct: number }) {
@@ -55,17 +54,34 @@ export default function ResultsTable({
       <div className="card-head" style={{ gap: 12 }}>
         <h2 style={{ marginRight: 'auto' }}>Comparison</h2>
 
-        <input className="input" style={{ width: 240 }} placeholder="Search: CEM type or standard…"
-               value={search} onChange={(e) => onSearch(e.target.value)} />
+        <input
+          className="input"
+          style={{ width: 240 }}
+          placeholder="Search: CEM type or standard…"
+          value={search}
+          onChange={(e) => onSearch(e.target.value)}
+        />
         <label className="badge" title="Hide exposure-incompatible">
-          <input type="checkbox" checked={hideIncompatible}
-                 onChange={(e) => onToggleHideIncompatible(e.target.checked)} style={{ marginRight: 6 }} />
+          <input
+            type="checkbox"
+            checked={hideIncompatible}
+            onChange={(e) => onToggleHideIncompatible(e.target.checked)}
+            style={{ marginRight: 6 }}
+          />
           Hide incompatible
         </label>
 
-        <select className="select" value={pageSize === 'all' ? 'all' : String(pageSize)}
-                onChange={(e) => onPageSizeChange(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-                style={{ width: 130 }} title="Rows per view">
+        {/* Page size selector with “All” */}
+        <select
+          className="select"
+          value={pageSize === 'all' ? 'all' : String(pageSize)}
+          onChange={(e) => {
+            const v = e.target.value === 'all' ? 'all' : Number(e.target.value)
+            onPageSizeChange(v)
+          }}
+          style={{ width: 130 }}
+          title="Rows per view"
+        >
           <option value="all">All rows</option>
           {[10,15,20,50].map(n => <option key={n} value={n}>{n}/page</option>)}
         </select>
@@ -114,10 +130,16 @@ export default function ResultsTable({
                   <td><ReductionBadge pct={r.gwpReductionPct} /></td>
                   <td>
                     {state.dosageMode === 'perCement' ? (
-                      <input className="input" style={{ width: 110 }} type="number"
-                             value={Math.round(r.dosageUsed)}
-                             onChange={(e) => setDosageOverride(r.cement.id, Number(e.target.value) || 0)} />
-                    ) : <span>{formatNumber(r.dosageUsed)}</span>}
+                      <input
+                        className="input"
+                        style={{ width: 110 }}
+                        type="number"
+                        value={Math.round(r.dosageUsed)}
+                        onChange={(e) => setDosageOverride(r.cement.id, Number(e.target.value) || 0)}
+                      />
+                    ) : (
+                      <span>{formatNumber(r.dosageUsed)}</span>
+                    )}
                   </td>
                   <td>{formatNumber(r.co2ePerM3_A1A3)}</td>
                   <td>{state.includeA4 ? formatNumber(r.a4Transport) : '—'}</td>
@@ -131,6 +153,7 @@ export default function ResultsTable({
         </table>
       </div>
 
+      {/* Pagination footer (hidden when pageSize = All) */}
       {usingPagination && (
         <div className="table-footer">
           <div className="small">{rows.length ? `Page ${page} of ${totalPages} · ${totalCount} total` : '—'}</div>
