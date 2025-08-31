@@ -45,11 +45,10 @@ export default function ResultsTable({
   dosageMode, perCementDosage, onPerCementDosageChange
 }: Props) {
 
-  // pick a single worst (closest to baseline) among non-baseline rows
+  // single worst (closest to baseline) among non-baseline rows
   const worstNonBaselineId = useMemo(() => {
     const pool = rows.filter(r => r.cement.id !== baselineId)
     if (!pool.length) return undefined
-    // smaller reduction% is worse (negatives are even worse)
     const worst = pool.reduce((m, r) => (r.gwpReductionPct < m.gwpReductionPct ? r : m), pool[0])
     return worst.cement.id
   }, [rows, baselineId])
@@ -78,39 +77,15 @@ export default function ResultsTable({
         <table className="table">
           <thead>
             <tr>
-              <Th k="cement" label="Cement" sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} />
-              <Th
-                k="strength" label="Strength" sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}
-                info="EN 197 strength class (e.g., 32.5N, 42.5R)."
-              />
-              <Th
-                k="clinker" label="Clinker" sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}
-                info="Estimated clinker fraction of the cement."
-              />
-              <Th
-                k="ef" label="EF (kgCO₂/kg)" sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}
-                info="Emission factor of the binder (A1–A3), kg CO₂ per kg of cement."
-              />
-              <Th
-                k="dosage" label="Dosage (kg/m³)" sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}
-                info="Binder mass per cubic metre of concrete."
-              />
-              <Th
-                k="a1a3" label="CO₂e A1–A3 (kg/m³)" sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}
-                info="Per-m³ emissions from materials & manufacturing, i.e. dosage × EF."
-              />
-              <Th
-                k="a4" label="A4 (kg)" sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}
-                info="Transport emissions for your distance × volume (if enabled)."
-              />
-              <Th
-                k="total" label="Total element (kg)" sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}
-                info="A1–A3 × element volume + A4 transport."
-              />
-              <Th
-                k="reduction" label="Δ vs baseline" sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}
-                info="Percent improvement vs the worst OPC baseline (bigger is better)."
-              />
+              <Th k="cement"    label="Cement"             sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}/>
+              <Th k="strength"  label="Strength"           sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}/>
+              <Th k="clinker"   label="Clinker"            sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}/>
+              <Th k="ef"        label="EF (kgCO₂/kg)"      sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}/>
+              <Th k="dosage"    label="Dosage (kg/m³)"     sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}/>
+              <Th k="a1a3"      label="CO₂e A1–A3 (kg/m³)" sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}/>
+              <Th k="a4"        label="A4 (kg)"            sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}/>
+              <Th k="total"     label="Total element (kg)" sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}/>
+              <Th k="reduction" label="Δ vs baseline"      sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}/>
             </tr>
           </thead>
 
@@ -122,15 +97,11 @@ export default function ResultsTable({
               const isWorst = r.cement.id === worstNonBaselineId
               const dim = !r.exposureCompatible
 
-              // Row tints: baseline strong red, worst light red, best light green, others neutral
+              // Row tints
               let rowStyle: React.CSSProperties = {}
-              if (isBase) {
-                rowStyle = { boxShadow: 'inset 0 0 0 9999px rgba(239,68,68,0.16)', borderColor: '#fecaca' }
-              } else if (isWorst) {
-                rowStyle = { boxShadow: 'inset 0 0 0 9999px rgba(239,68,68,0.08)', borderColor: '#fecaca' }
-              } else if (isBest) {
-                rowStyle = { boxShadow: 'inset 0 0 0 9999px rgba(16,185,129,0.08)', borderColor: '#a7f3d0' }
-              }
+              if (isBase)        rowStyle = { boxShadow: 'inset 0 0 0 9999px rgba(239,68,68,0.16)', borderColor: '#fecaca' }
+              else if (isWorst)  rowStyle = { boxShadow: 'inset 0 0 0 9999px rgba(239,68,68,0.08)', borderColor: '#fecaca' }
+              else if (isBest)   rowStyle = { boxShadow: 'inset 0 0 0 9999px rgba(16,185,129,0.08)',  borderColor: '#a7f3d0' }
 
               const trClass = ['tr-elevated', isSel ? 'tr-selected' : '', dim ? 'row-dim' : ''].join(' ').trim()
 
@@ -159,6 +130,7 @@ export default function ResultsTable({
                           return (
                             <span key={i} className="tag tooltip-wrapper" aria-label={meaning}>
                               <span>{t}</span>
+                              {/* clean popup like the header version */}
                               <span className="tooltip-box tooltip-right">{meaning}</span>
                             </span>
                           )
@@ -209,33 +181,24 @@ export default function ResultsTable({
   )
 }
 
-/* ---------- header cell with sort + info ---------- */
 function Th({
-  k, label, sortKey, sortDir, onSortChange, info
+  k, label, sortKey, sortDir, onSortChange
 }: {
   k: SortKey
   label: string
   sortKey: SortKey
   sortDir: 'asc' | 'desc'
   onSortChange: (k: SortKey) => void
-  info?: string
 }) {
   const active = sortKey === k
   return (
-    <th className={active ? `th-sort th-${sortDir}` : 'th-sort'} role="button" tabIndex={0}
-        onClick={() => onSortChange(k)}>
+    <th
+      onClick={() => onSortChange(k)}
+      className={active ? `th-sort th-${sortDir}` : 'th-sort'}
+      role="button"
+      tabIndex={0}
+    >
       <span className="th-label">{label}</span>
-      {info && (
-        <span
-          className="tooltip-wrapper th-help"
-          onClick={(e) => e.stopPropagation()}
-          onKeyDown={(e) => e.stopPropagation()}
-          aria-label={info}
-        >
-          <span className="tooltip-icon">i</span>
-          <span className="tooltip-box tooltip-right">{info}</span>
-        </span>
-      )}
       <span className="sort-caret">{active ? (sortDir === 'asc' ? '▲' : '▼') : ''}</span>
     </th>
   )
