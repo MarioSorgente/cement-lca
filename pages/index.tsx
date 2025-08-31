@@ -19,7 +19,7 @@ type TableSortKey =
 type Scope = 'all' | 'compatible' | 'common'
 
 export default function Home() {
-  // ----- Inputs block -----
+  // ----- Inputs block (NO strengthClass here) -----
   const [inputs, setInputs] = useState<InputsState>({
     exposureClass: 'XC2',
     volumeM3: 100,
@@ -41,6 +41,7 @@ export default function Home() {
   // ----- Calculate all rows from inputs -----
   const allRows: ResultRow[] = useMemo(() => {
     const rows = computeRows(inputs, perCementDosage)
+    // keep selected highlight valid
     if (selectedId && !rows.find(r => r.cement.id === selectedId)) {
       setSelectedId(null)
     }
@@ -98,7 +99,7 @@ export default function Home() {
     })
   }, [filtered, sortKey, sortDir])
 
-  // Paging (simple “show first N rows”)
+  // Paging (simple “show first N rows” style)
   const rowsForPage = useMemo(() => rowsSorted.slice(0, pageSize), [rowsSorted, pageSize])
 
   return (
@@ -128,6 +129,7 @@ export default function Home() {
         scope={scope}
         onScope={setScope}
         onExport={() => {
+          // basic CSV export of current page
           const header = [
             'cement', 'clinker(%)','EF(kgCO2/kg)',
             'dosage(kg/m3)','A1A3(kg/m3)','A4(kg)','total(kg)','reduction(%)'
@@ -166,7 +168,7 @@ export default function Home() {
 
       {/* Chart */}
       <BarChart
-        rows={rowsSorted}
+        rows={rowsSorted}                 // show all bars
         bestId={bestId}
         opcBaselineId={baselineId}
         baselineEf={baseline?.cement.co2e_per_kg_binder_A1A3}
