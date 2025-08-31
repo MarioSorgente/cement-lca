@@ -4,7 +4,7 @@ import ResultsTable from '../components/ResultsTable'
 import BarChart from '../components/BarChart'
 import { Cement, InputsState, ResultRow } from '../lib/types'
 import { getDefaultDosage } from '../lib/dosage'
-import { toResultRows } from '../lib/calc'
+import { getWorstOPCBaseline, toResultRows } from '../lib/calc'
 import { tagsForCement } from '../lib/tags'
 import { downloadCSV } from '../lib/download'
 import { SortKey, SortDir } from '../lib/sort'
@@ -37,19 +37,15 @@ export default function Home() {
   // Load dataset
   useEffect(() => { fetch('/data/cements.json').then(r => r.json()).then(setCements) }, [])
 
-  // Dynamic baseline: worst OPC EF (no SCMs); fallback to 0.60 if none present
-  const baselineEf = useMemo(() => {
-    const opc = cements.filter(c => c.scms.length === 0)
-    if (!opc.length) return 0.60
-    return Math.max(...opc.map(c => c.co2e_per_kg_binder_A1A3))
-  }, [cements])
-
   const handleSortChange = (key: SortKey) => {
     if (key === sortKey) setSortDir(prev => prev === 'asc' ? 'desc' : 'asc')
     else { setSortKey(key); setSortDir('asc') }
   }
 
-  // Filter by category chips
+  // Baseline (Option B): worst OPC from the *full dataset* (do not depend on filter chips)
+  const baseline = useMemo(() => getWorstOPCBaseline(cements), [cements])
+
+  // Filter by category chips (for what we *display*)
   const tagFiltered = useMemo(() => {
     return cements.filter(c => {
       const tags = new Set(tagsForCement(c))
@@ -64,7 +60,7 @@ export default function Home() {
     })
   }, [cements, state.filters])
 
-  // Compute rows from design inputs (uses dynamic baseline)
+  // Compute rows from design inputs, using the dynamic baseline EF
   const rowsBase: ResultRow[] = useMemo(() => {
     return toResultRows(tagFiltered, {
       exposureClass: state.exposureClass,
@@ -75,9 +71,9 @@ export default function Home() {
         ? state.globalDosage
         : (dosageOverrides[c.id] ?? c.default_dosage_kg_per_m3),
       tagsFor: (c) => tagsForCement(c),
-      baselineEf,
+      baselineEf: baseline.ef || 0.6
     })
-  }, [tagFiltered, state, dosageOverrides, baselineEf])
+  }, [tagFiltered, state, dosageOverrides, baseline])
 
   // Search + hide incompatible
   const searched = useMemo(() => {
@@ -120,13 +116,7 @@ export default function Home() {
 
   // Highlights
   const bestId = sorted[0]?.cement.id
-  const opcBaselineId = useMemo(() => {
-    const opcRows = sorted.filter(r => r.cement.scms.length === 0)
-    if (!opcRows.length) return undefined
-    let worst = opcRows[0]
-    for (const r of opcRows) if (r.totalElement > worst.totalElement) worst = r
-    return worst.cement.id
-  }, [sorted])
+  const opcBaselineId = baseline.cementId
 
   const setDosageOverride = (id: string, v: number) =>
     setDosageOverrides(prev => ({ ...prev, [id]: v }))
@@ -186,12 +176,18 @@ export default function Home() {
         onPageSizeChange={setPageSize}
         totalCount={totalRows}
         usingPagination={usingPagination}
-        baselineEf={baselineEf}
+        // NEW: show baseline meta in table header tooltip if desired (not required here)
       />
 
-      {/* Banner + Chart */}
+      {/* Banner + Chart (with baseline info) */}
       <div className="view-banner">{bannerText}</div>
-      <BarChart rows={pageRows} bestId={bestId} opcBaselineId={opcBaselineId} baselineEf={baselineEf} />
+      <BarChart
+        rows={pageRows}
+        bestId={bestId}
+        opcBaselineId={opcBaselineId}
+        baselineEf={baseline.ef}
+        baselineLabel={baseline.label}
+      />
 
       <footer className="footer">
         © {new Date().getFullYear()} Cement LCA · Educational only · Use verified EPDs for projects.
