@@ -82,4 +82,15 @@ body { margin: 0; background: #f7fafc; color: #0f172a; }
   display: inline-block;
 }
 
+/* reduction chips */
+.chip {
+  display:inline-flex; align-items:center; padding:2px 8px; border-radius:999px;
+  font-size:12px; border:1px solid #e5e7eb; background:#f8fafc; color:#0f172a;
+}
+.chip-red { background:#fef2f2; color:#991b1b; border-color:#fecaca; }
+.chip-yellow { background:#fffbeb; color:#92400e; border-color:#fde68a; }
+.chip-green { background:#ecfdf5; color:#065f46; border-color:#a7f3d0; }
+.chip-deepgreen { background:#d1fae5; color:#065f46; border-color:#6ee7b7; }
+
+
 
