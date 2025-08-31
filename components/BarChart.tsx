@@ -18,20 +18,23 @@ export default function BarChart({
 
   if (!rows.length) return null
 
-  // layout
+  // --- Layout ---
   const max = Math.max(...rows.map(r => r.totalElement))
-  const widthPerBar = 58
+  const widthPerBar = 58 // spacing for readable labels
   const w = Math.max(900, rows.length * widthPerBar + 160)
   const h = 430
-  const m = { top: 28, right: 24, bottom: 120, left: 64 } // extra headroom for labels
+  const m = { top: 28, right: 24, bottom: 120, left: 64 } // headroom for label pills
   const iw = w - m.left - m.right
   const ih = h - m.top - m.bottom
   const step = iw / rows.length
   const bar = Math.min(42, step * 0.64)
 
+  // Y axis ticks
   const yTicks = 5
   const tickValues = Array.from({ length: yTicks + 1 }, (_, i) => Math.round((max * i) / yTicks))
+  const nf = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 })
 
+  // --- Colors ---
   const colorFor = (pct: number, isBaseline: boolean) => {
     if (isBaseline) return '#ef4444' // red for baseline
     if (pct <= 0) return '#ef4444'   // baseline or worse
@@ -40,23 +43,26 @@ export default function BarChart({
     return '#10b981'                 // deep green
   }
 
+  // --- Baseline text ---
   const baselineText = baselineEf
     ? `Baseline (worst OPC): ${baselineLabel ?? '—'} · EF ${baselineEf.toFixed(2)} kg/kg`
     : 'Baseline: not available'
 
-  // Prefer splitting before strength class (… 32.5N, 42.5R, etc); else split near middle
-  const twoLine = (name: string) => {
-    const m = name.match(/\s(\d{2}\.\d[NR])$/)
-    if (m && m.index) return [name.slice(0, m.index), name.slice(m.index + 1)]
-    if (name.length <= 16) return [name, '']
-    const mid = Math.floor(name.length / 2)
-    let split = name.indexOf(' ', mid)
-    if (split === -1) split = name.lastIndexOf(' ')
-    if (split <= 0) return [name, '']
-    return [name.slice(0, split), name.slice(split + 1)]
+  // --- Compact label (Option 1) ---
+  // Examples:
+  //  "CEM II/B-S 42.5N"  -> "II/B-S 42.5N"
+  //  "CEM IV/A (P) 42.5N"-> "IV/A-P 42.5N"
+  //  "LC3-50 (CC+LL) 42.5N" -> "LC3-50 42.5N"
+  function compactLabel(full: string) {
+    let s = full.trim()
+    if (s.startsWith('CEM ')) s = s.replace(/^CEM\s+/, '')
+    s = s.replace(/\s*\(([^)]+)\)/g, (_m, p1) => `-${p1}`) // " (P)" -> "-P"
+    s = s.replace(/\s+-/g, '-') // remove spaces before dashes
+    s = s.replace(/\s{2,}/g, ' ')
+    return s
   }
 
-  // helpers for label pills (never overlapping / clipped)
+  // --- Helpers for label pills (above bars) ---
   const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v))
 
   function labelTextAndColors(isBaseline: boolean, pct: number) {
@@ -75,12 +81,11 @@ export default function BarChart({
   ) {
     const padX = 7, radius = 9
     const { text, textFill, bg, stroke } = labelTextAndColors(isBaseline, pct)
-    // rough text width estimate (SVG has no easy pre-measure)
     const estTextW = Math.max(26, text.length * 6.5)
     const pillW = estTextW + padX * 2
     const pillH = 20
     const desired = isBaseline ? yBarTop - 26 : yBarTop - 12
-    const y = clamp(desired, 16, ih - 6) // keep label inside plot area
+    const y = clamp(desired, 16, ih - 6)
     const x = xCenter - pillW / 2
 
     return (
@@ -111,7 +116,18 @@ export default function BarChart({
     )
   }
 
-  const nf = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 })
+  // --- Adaptive density (Option 2) ---
+  // Minimum width we want per x label (approx). Larger value => fewer labels.
+  const desiredLabelWidthPx = 70
+  const labelEvery = Math.max(1, Math.ceil(desiredLabelWidthPx / step))
+
+  const isMustShow = (cementId: string, index: number) => {
+    if (cementId === selectedId) return true
+    if (cementId === opcBaselineId) return true
+    if (cementId === bestId) return true
+    if (index % labelEvery === 0) return true
+    return false
+  }
 
   return (
     <div className="card">
@@ -175,17 +191,29 @@ ${isBaseline ? 'Baseline' : `Reduction vs baseline: ${reductionLabel}`}`}</title
               )
             })}
 
-            {/* X labels (two lines, gently angled) */}
+            {/* X labels: compact, adaptive density. Also show a faint tick for skipped labels */}
             {rows.map((r, i) => {
-              const x = i * step + step / 2
-              const [l1, l2] = twoLine(r.cement.cement_type)
+              const xCenter = i * step + step / 2
+              const label = compactLabel(r.cement.cement_type)
+              const mustShow = isMustShow(r.cement.id, i)
               const isBest = r.cement.id === bestId
               const isBaseline = r.cement.id === opcBaselineId
               const color = isBest ? '#065f46' : isBaseline ? '#991b1b' : '#475569'
               return (
-                <g key={r.cement.id} transform={`translate(${x},${ih + 20}) rotate(-24)`}>
-                  <text fontSize="12" fill={color} textAnchor="end" style={{ paintOrder: 'stroke', stroke: '#fff', strokeWidth: 2 }}>{l1}</text>
-                  {l2 && <text y={14} fontSize="12" fill={color} textAnchor="end" style={{ paintOrder: 'stroke', stroke: '#fff', strokeWidth: 2 }}>{l2}</text>}
+                <g key={r.cement.id} transform={`translate(${xCenter},${ih + 24})`}>
+                  {mustShow ? (
+                    <text
+                      fontSize="12"
+                      fill={color}
+                      textAnchor="middle"
+                      style={{ paintOrder: 'stroke', stroke: '#fff', strokeWidth: 2 }}
+                    >
+                      {label}
+                    </text>
+                  ) : (
+                    // faint tick so users can see there is a bar here
+                    <line x1={0} x2={0} y1={-10} y2={-4} stroke="#cbd5e1" />
+                  )}
                 </g>
               )
             })}
