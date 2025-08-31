@@ -2,7 +2,7 @@ import React, { useMemo } from 'react'
 import { ResultRow, InputsState } from '../lib/types'
 
 type SortKey =
-  | 'cement' | 'strength' | 'clinker' | 'ef' | 'dosage' | 'a1a3' | 'a4' | 'total' | 'reduction'
+  | 'cement' | 'clinker' | 'ef' | 'dosage' | 'a1a3' | 'a4' | 'total' | 'reduction'
 type Scope = 'all' | 'compatible' | 'common'
 
 const SCM_MEANINGS: Record<string, string> = {
@@ -45,7 +45,7 @@ export default function ResultsTable({
   dosageMode, perCementDosage, onPerCementDosageChange
 }: Props) {
 
-  // single worst (closest to baseline) among non-baseline rows
+  // one worst (closest to baseline) among non-baseline rows
   const worstNonBaselineId = useMemo(() => {
     const pool = rows.filter(r => r.cement.id !== baselineId)
     if (!pool.length) return undefined
@@ -78,7 +78,7 @@ export default function ResultsTable({
           <thead>
             <tr>
               <Th k="cement"    label="Cement"             sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}/>
-              <Th k="strength"  label="Strength"           sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}/>
+              {/* Strength column removed as requested */}
               <Th k="clinker"   label="Clinker"            sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}/>
               <Th k="ef"        label="EF (kgCO₂/kg)"      sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}/>
               <Th k="dosage"    label="Dosage (kg/m³)"     sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}/>
@@ -97,12 +97,13 @@ export default function ResultsTable({
               const isWorst = r.cement.id === worstNonBaselineId
               const dim = !r.exposureCompatible
 
-              // Row tints
+              // Row tints: Baseline red; worst (non-baseline) orange; best green.
               let rowStyle: React.CSSProperties = {}
               if (isBase)        rowStyle = { boxShadow: 'inset 0 0 0 9999px rgba(239,68,68,0.16)', borderColor: '#fecaca' }
-              else if (isWorst)  rowStyle = { boxShadow: 'inset 0 0 0 9999px rgba(239,68,68,0.08)', borderColor: '#fecaca' }
-              else if (isBest)   rowStyle = { boxShadow: 'inset 0 0 0 9999px rgba(16,185,129,0.08)',  borderColor: '#a7f3d0' }
+              else if (isWorst)  rowStyle = { boxShadow: 'inset 0 0 0 9999px rgba(245,158,11,0.12)', borderColor: '#f59e0b' }
+              else if (isBest)   rowStyle = { boxShadow: 'inset 0 0 0 9999px rgba(16,185,129,0.10)', borderColor: '#a7f3d0' }
 
+              const leftStripe = isBest ? '#10b981' : (isBase ? '#ef4444' : (isWorst ? '#f59e0b' : '#e5e7eb'))
               const trClass = ['tr-elevated', isSel ? 'tr-selected' : '', dim ? 'row-dim' : ''].join(' ').trim()
 
               const scmBadge = r.cement.scms.length ? r.cement.scms.map(s => s.type) : ['OPC']
@@ -120,7 +121,7 @@ export default function ResultsTable({
                 <tr key={r.cement.id}
                     className={trClass}
                     onClick={() => onRowClick?.(r.cement.id)}
-                    style={{ borderLeft: `6px solid ${isBest ? '#10b981' : (isBase ? '#ef4444' : '#e5e7eb')}`, ...rowStyle }}>
+                    style={{ borderLeft: `6px solid ${leftStripe}`, ...rowStyle }}>
                   <td>
                     <div className="cell-title">
                       <div className="title">{r.cement.cement_type}</div>
@@ -130,7 +131,6 @@ export default function ResultsTable({
                           return (
                             <span key={i} className="tag tooltip-wrapper" aria-label={meaning}>
                               <span>{t}</span>
-                              {/* clean popup like the header version */}
                               <span className="tooltip-box tooltip-right">{meaning}</span>
                             </span>
                           )
@@ -139,7 +139,8 @@ export default function ResultsTable({
                     </div>
                   </td>
 
-                  <td><span className="badge">{r.cement.strength_class}</span></td>
+                  {/* Strength column removed */}
+
                   <td>{Math.round(r.cement.clinker_fraction * 100)}%</td>
                   <td>{r.cement.co2e_per_kg_binder_A1A3.toFixed(3)}</td>
 
