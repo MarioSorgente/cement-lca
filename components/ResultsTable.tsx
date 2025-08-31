@@ -5,13 +5,13 @@ import { SortKey, SortDir } from '../lib/sort'
 type PageSize = number | 'all'
 
 function ReductionBadge({ pct }: { pct: number }) {
-  // color thresholds
+  // color thresholds + directional label
   let cls = 'chip-red'
   if (pct > 0 && pct <= 10) cls = 'chip-yellow'
   else if (pct > 10 && pct <= 20) cls = 'chip-green'
   else if (pct > 20) cls = 'chip-deepgreen'
-  const sign = pct > 0 ? '+' : ''
-  return <span className={`chip ${cls}`}>{sign}{pct.toFixed(0)}%</span>
+  const label = pct >= 0 ? `↓ ${pct.toFixed(0)}%` : `↑ ${Math.abs(pct).toFixed(0)}%`
+  return <span className={`chip ${cls}`}>{label}</span>
 }
 
 export default function ResultsTable({
@@ -98,7 +98,7 @@ export default function ResultsTable({
               <Th k="clinker">Clinker</Th>
               <th>SCMs</th>
               <Th k="ef">EF (kgCO₂/kg)</Th>
-              <Th k="reduction">Δ vs baseline</Th>
+              <Th k="reduction">vs baseline (lower is better)</Th>
               <Th k="dosage">Dosage (kg/m³)</Th>
               <Th k="a1a3">CO₂e A1–A3 (kg/m³)</Th>
               <Th k="a4">A4 (kg)</Th>
