@@ -37,6 +37,13 @@ export default function Home() {
   // Load dataset
   useEffect(() => { fetch('/data/cements.json').then(r => r.json()).then(setCements) }, [])
 
+  // Dynamic baseline: worst OPC EF (no SCMs); fallback to 0.60 if none present
+  const baselineEf = useMemo(() => {
+    const opc = cements.filter(c => c.scms.length === 0)
+    if (!opc.length) return 0.60
+    return Math.max(...opc.map(c => c.co2e_per_kg_binder_A1A3))
+  }, [cements])
+
   const handleSortChange = (key: SortKey) => {
     if (key === sortKey) setSortDir(prev => prev === 'asc' ? 'desc' : 'asc')
     else { setSortKey(key); setSortDir('asc') }
@@ -57,7 +64,7 @@ export default function Home() {
     })
   }, [cements, state.filters])
 
-  // Compute rows from design inputs
+  // Compute rows from design inputs (uses dynamic baseline)
   const rowsBase: ResultRow[] = useMemo(() => {
     return toResultRows(tagFiltered, {
       exposureClass: state.exposureClass,
@@ -67,9 +74,10 @@ export default function Home() {
       dosageFor: (c) => state.dosageMode === 'global'
         ? state.globalDosage
         : (dosageOverrides[c.id] ?? c.default_dosage_kg_per_m3),
-      tagsFor: (c) => tagsForCement(c)
+      tagsFor: (c) => tagsForCement(c),
+      baselineEf,
     })
-  }, [tagFiltered, state, dosageOverrides])
+  }, [tagFiltered, state, dosageOverrides, baselineEf])
 
   // Search + hide incompatible
   const searched = useMemo(() => {
@@ -178,11 +186,12 @@ export default function Home() {
         onPageSizeChange={setPageSize}
         totalCount={totalRows}
         usingPagination={usingPagination}
+        baselineEf={baselineEf}
       />
 
       {/* Banner + Chart */}
       <div className="view-banner">{bannerText}</div>
-      <BarChart rows={pageRows} bestId={bestId} opcBaselineId={opcBaselineId} />
+      <BarChart rows={pageRows} bestId={bestId} opcBaselineId={opcBaselineId} baselineEf={baselineEf} />
 
       <footer className="footer">
         © {new Date().getFullYear()} Cement LCA · Educational only · Use verified EPDs for projects.
