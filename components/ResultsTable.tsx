@@ -1,10 +1,18 @@
-// components/ResultsTable.tsx
 import React from 'react'
 import { ResultRow, InputsState } from '../lib/types'
 
 type SortKey =
   | 'cement' | 'strength' | 'clinker' | 'ef' | 'dosage' | 'a1a3' | 'a4' | 'total' | 'reduction'
 type Scope = 'all' | 'compatible' | 'common'
+
+const SCM_MEANINGS: Record<string, string> = {
+  S: 'GGBS / Slag: improves chloride resistance & lowers CO₂',
+  V: 'Fly ash: moderates heat; slower early strength; CO₂ cut',
+  P: 'Natural pozzolana: long-term strength; CO₂ cut',
+  LL: 'High-purity limestone: workability & modest CO₂ cut',
+  CC: 'Calcined clay: strong CO₂ cut when blended with limestone',
+  OPC: 'Ordinary Portland cement (no SCMs)',
+}
 
 interface Props {
   rows: ResultRow[]
@@ -22,7 +30,6 @@ interface Props {
   selectedId?: string | null
   bestId?: string
   baselineId?: string
-  /** NEW: to enable per-cement dosage editing */
   dosageMode?: InputsState['dosageMode']
   perCementDosage?: Record<string, number>
   onPerCementDosageChange?: (cementId: string, val: number) => void
@@ -37,7 +44,6 @@ export default function ResultsTable({
   bestId, baselineId,
   dosageMode, perCementDosage, onPerCementDosageChange
 }: Props) {
-
   return (
     <div className="card">
       {/* Toolbar */}
@@ -80,26 +86,24 @@ export default function ResultsTable({
               const isBase = r.cement.id === baselineId
               const dim = !r.exposureCompatible
 
-              // left color stripe based on reduction
+              // RED tint strength increases as reduction% approaches 0.
+              // ≥25% reduction → no red. Baseline → strongest red.
               const pct = r.gwpReductionPct
-              const stripe =
-                isBase ? '#ef4444' :
-                pct <= 0 ? '#ef4444' :
-                pct <= 10 ? '#f59e0b' :
-                pct <= 20 ? '#22c55e' : '#10b981'
+              const redFactor = isBase ? 1 : Math.max(0, 1 - Math.min(Math.max(pct, 0), 25) / 25)
+              const redBg = `rgba(239,68,68,${0.08 + redFactor * 0.14})`     // #ef4444 at varying alpha
+              const redBorder = `rgba(239,68,68,${0.20 + redFactor * 0.30})`
+
+              const baseRowStyle = isBest
+                ? { boxShadow: 'inset 0 0 0 9999px rgba(16,185,129,0.08)', borderColor: '#a7f3d0' }
+                : (redFactor > 0 ? { boxShadow: `inset 0 0 0 9999px ${redBg}`, borderColor: redBorder } : {})
 
               const trClass = [
                 'tr-elevated',
                 isSel ? 'tr-selected' : '',
-                isBest ? 'row-best' : '',
-                isBase ? 'row-baseline' : '',
                 dim ? 'row-dim' : ''
               ].join(' ').trim()
 
-              const scmBadge = r.cement.scms.length
-                ? r.cement.scms.map(s => s.type).join('+')
-                : 'OPC'
-
+              const scmBadge = r.cement.scms.length ? r.cement.scms.map(s => s.type) : ['OPC']
               const pillClass =
                 isBase || pct <= 0 ? 'pill pill-red' :
                 pct <= 10 ? 'pill pill-amber' :
@@ -111,16 +115,39 @@ export default function ResultsTable({
               return (
                 <tr key={r.cement.id} className={trClass}
                     onClick={() => onRowClick?.(r.cement.id)}
-                    style={{ boxShadow: '0 1px 0 0 rgba(0,0,0,0.02)',
-                             borderLeft: `6px solid ${stripe}` }}>
+                    style={{ borderLeft: `6px solid ${isBest ? '#10b981' : (isBase ? '#ef4444' : '#e5e7eb')}`, ...baseRowStyle }}>
                   <td>
                     <div className="cell-title">
-                      <div className="title">{r.cement.cement_type}</div>
+                      <div className="title ihelp-container">
+                        {r.cement.cement_type}
+                        {/* Info icon on hover */}
+                        <span className="ihelp tooltip-wrapper" aria-label="What do these columns mean?">
+                          <span className="tooltip-icon">i</span>
+                          <span className="tooltip-box">
+                            <b>EF</b>: CO₂ per kg of binder (A1–A3).<br/>
+                            <b>Dosage</b>: Binder kg per m³ of concrete.<br/>
+                            <b>A1–A3</b>: CO₂ per m³ from materials & manufacturing.<br/>
+                            <b>A4</b>: Transport CO₂ for your distance/volume.<br/>
+                            <b>Total</b>: A1–A3 × volume + A4.<br/>
+                            <b>Δ vs baseline</b>: % better than worst OPC baseline.
+                          </span>
+                        </span>
+                      </div>
                       <div className="subtitle">
-                        {scmBadge.split('+').map((t, i) => <span key={i} className="tag">{t}</span>)}
+                        {scmBadge.map((t, i) => (
+                          <span
+                            key={i}
+                            className="tag"
+                            title={SCM_MEANINGS[t] ?? t}
+                            aria-label={SCM_MEANINGS[t] ?? t}
+                          >
+                            {t}
+                          </span>
+                        ))}
                       </div>
                     </div>
                   </td>
+
                   <td><span className="badge">{r.cement.strength_class}</span></td>
                   <td>{Math.round(r.cement.clinker_fraction * 100)}%</td>
                   <td>{r.cement.co2e_per_kg_binder_A1A3.toFixed(3)}</td>
@@ -144,9 +171,10 @@ export default function ResultsTable({
                   <td>{Math.round(r.co2ePerM3_A1A3)}</td>
                   <td>{Math.round(r.a4Transport)}</td>
                   <td className="num-strong">{Math.round(r.totalElement)}</td>
+
                   <td>
                     <span className={pillClass}>
-                      {pct >= 0 ? `↓ ${pct.toFixed(0)}%` : `↑ ${Math.abs(pct).toFixed(0)}%`}
+                      {isBase ? 'Baseline' : (pct >= 0 ? `↓ ${pct.toFixed(0)}%` : `↑ ${Math.abs(pct).toFixed(0)}%`)}
                     </span>
                   </td>
                 </tr>
