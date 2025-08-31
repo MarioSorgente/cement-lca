@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useMemo } from 'react'
 import { ResultRow, InputsState } from '../lib/types'
 
 type SortKey =
@@ -44,6 +44,16 @@ export default function ResultsTable({
   bestId, baselineId,
   dosageMode, perCementDosage, onPerCementDosageChange
 }: Props) {
+
+  // Find the single worst non-baseline row (closest to 0% reduction; can be negative).
+  const worstNonBaselineId = useMemo(() => {
+    const pool = rows.filter(r => r.cement.id !== baselineId)
+    if (!pool.length) return undefined
+    // Smaller reductionPct is worse (<= 0 is even worse than small positive).
+    const worst = pool.reduce((m, r) => (r.gwpReductionPct < m.gwpReductionPct ? r : m), pool[0])
+    return worst.cement.id
+  }, [rows, baselineId])
+
   return (
     <div className="card">
       {/* Toolbar */}
@@ -84,28 +94,30 @@ export default function ResultsTable({
               const isSel = selectedId === r.cement.id
               const isBest = r.cement.id === bestId
               const isBase = r.cement.id === baselineId
+              const isWorst = r.cement.id === worstNonBaselineId
               const dim = !r.exposureCompatible
 
-              // RED tint strength increases as reduction% approaches 0.
-              // ≥25% reduction → no red. Baseline → strongest red.
-              const pct = r.gwpReductionPct
-              const redFactor = isBase ? 1 : Math.max(0, 1 - Math.min(Math.max(pct, 0), 25) / 25)
-              const redBg = `rgba(239,68,68,${0.08 + redFactor * 0.14})`     // #ef4444 at varying alpha
-              const redBorder = `rgba(239,68,68,${0.20 + redFactor * 0.30})`
+              // Row background logic:
+              // - Baseline: strong red wash
+              // - Worst (non-baseline): light red wash
+              // - Best: light green wash
+              // - Others: neutral
+              let rowStyle: React.CSSProperties = {}
+              if (isBase) {
+                rowStyle = { boxShadow: 'inset 0 0 0 9999px rgba(239,68,68,0.16)', borderColor: '#fecaca' }
+              } else if (isWorst) {
+                rowStyle = { boxShadow: 'inset 0 0 0 9999px rgba(239,68,68,0.08)', borderColor: '#fecaca' }
+              } else if (isBest) {
+                rowStyle = { boxShadow: 'inset 0 0 0 9999px rgba(16,185,129,0.08)', borderColor: '#a7f3d0' }
+              }
 
-              const baseRowStyle = isBest
-                ? { boxShadow: 'inset 0 0 0 9999px rgba(16,185,129,0.08)', borderColor: '#a7f3d0' }
-                : (redFactor > 0 ? { boxShadow: `inset 0 0 0 9999px ${redBg}`, borderColor: redBorder } : {})
-
-              const trClass = [
-                'tr-elevated',
-                isSel ? 'tr-selected' : '',
-                dim ? 'row-dim' : ''
-              ].join(' ').trim()
+              const trClass = ['tr-elevated', isSel ? 'tr-selected' : '', dim ? 'row-dim' : ''].join(' ').trim()
 
               const scmBadge = r.cement.scms.length ? r.cement.scms.map(s => s.type) : ['OPC']
+              const pct = r.gwpReductionPct
               const pillClass =
-                isBase || pct <= 0 ? 'pill pill-red' :
+                isBase ? 'pill pill-red' :
+                pct <= 0 ? 'pill pill-red' :
                 pct <= 10 ? 'pill pill-amber' :
                 pct <= 20 ? 'pill pill-green' : 'pill pill-deepgreen'
 
@@ -113,17 +125,18 @@ export default function ResultsTable({
               const curOverride = perCementDosage?.[r.cement.id]
 
               return (
-                <tr key={r.cement.id} className={trClass}
+                <tr key={r.cement.id}
+                    className={trClass}
                     onClick={() => onRowClick?.(r.cement.id)}
-                    style={{ borderLeft: `6px solid ${isBest ? '#10b981' : (isBase ? '#ef4444' : '#e5e7eb')}`, ...baseRowStyle }}>
+                    style={{ borderLeft: `6px solid ${isBest ? '#10b981' : (isBase ? '#ef4444' : '#e5e7eb')}`, ...rowStyle }}>
                   <td>
                     <div className="cell-title">
                       <div className="title ihelp-container">
                         {r.cement.cement_type}
                         {/* Info icon on hover */}
-                        <span className="ihelp tooltip-wrapper" aria-label="What do these columns mean?">
+                        <span className="tooltip-wrapper ihelp" aria-label="What do these columns mean?">
                           <span className="tooltip-icon">i</span>
-                          <span className="tooltip-box">
+                          <span className="tooltip-box tooltip-right">
                             <b>EF</b>: CO₂ per kg of binder (A1–A3).<br/>
                             <b>Dosage</b>: Binder kg per m³ of concrete.<br/>
                             <b>A1–A3</b>: CO₂ per m³ from materials & manufacturing.<br/>
@@ -135,12 +148,7 @@ export default function ResultsTable({
                       </div>
                       <div className="subtitle">
                         {scmBadge.map((t, i) => (
-                          <span
-                            key={i}
-                            className="tag"
-                            title={SCM_MEANINGS[t] ?? t}
-                            aria-label={SCM_MEANINGS[t] ?? t}
-                          >
+                          <span key={i} className="tag" title={SCM_MEANINGS[t] ?? t} aria-label={SCM_MEANINGS[t] ?? t}>
                             {t}
                           </span>
                         ))}
@@ -157,8 +165,7 @@ export default function ResultsTable({
                       <input
                         className="input sm"
                         style={{ width: 88 }}
-                        type="number"
-                        min={200} max={600} step={5}
+                        type="number" min={200} max={600} step={5}
                         value={curOverride ?? Math.round(r.dosageUsed)}
                         onChange={(e) => onPerCementDosageChange?.(r.cement.id, Number(e.target.value))}
                         onClick={(e)=>e.stopPropagation()}
