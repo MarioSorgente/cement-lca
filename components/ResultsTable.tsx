@@ -34,6 +34,10 @@ type Props = {
   dosageMode?: InputsState['dosageMode']
   perCementDosage?: Record<string, number>
   onPerCementDosageChange?: (cementId: string, val: number) => void
+
+  /* NEW: compare */
+  comparedIds?: string[]
+  onToggleCompare?: (cementId: string) => void
 }
 
 const SCM_MEANINGS: Record<string, string> = {
@@ -45,7 +49,6 @@ const SCM_MEANINGS: Record<string, string> = {
   CC:  'Calcined clay: strong CO₂ cut when blended with limestone.',
 }
 
-/** Header cell with unified tooltip + sorting */
 function Th({
   k, label, sortKey, sortDir, onSortChange, help,
 }: {
@@ -64,7 +67,7 @@ function Th({
       style={{ whiteSpace: 'nowrap', cursor: 'pointer' }}
     >
       <span className="th-label">{label}</span>
-      {help && <Tooltip text={help} portal />} {/* use portal in headers */}
+      {help && <Tooltip text={help} portal />}
       <span className="sort-caret">{active ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</span>
     </th>
   )
@@ -78,6 +81,8 @@ export default function ResultsTable({
   onExport, onRowClick, selectedId,
   bestId, baselineId,
   dosageMode, perCementDosage, onPerCementDosageChange,
+  comparedIds = [],
+  onToggleCompare,
 }: Props) {
 
   const worstNonBaselineId = useMemo(() => {
@@ -110,23 +115,13 @@ export default function ResultsTable({
             value={search}
             onChange={(e) => onSearch(e.target.value)}
           />
-          <select
-            className="select"
-            value={scope}
-            onChange={(e) => onScope(e.target.value as Scope)}
-          >
+          <select className="select" value={scope} onChange={(e) => onScope(e.target.value as Scope)}>
             <option value="all">All rows</option>
             <option value="compatible">Exposure-compatible</option>
             <option value="common">Common</option>
           </select>
-          <select
-            className="select"
-            value={pageSize}
-            onChange={(e) => onPageSize(Number(e.target.value))}
-          >
-            {[25, 50, 100, 250].map(n => (
-              <option key={n} value={n}>{n}/page</option>
-            ))}
+          <select className="select" value={pageSize} onChange={(e) => onPageSize(Number(e.target.value))}>
+            {[25, 50, 100, 250].map(n => <option key={n} value={n}>{n}/page</option>)}
           </select>
           <button className="btn" onClick={onExport}>Export CSV</button>
         </div>
@@ -159,7 +154,6 @@ export default function ResultsTable({
               const isWorst = r.cement.id === worstNonBaselineId
               const dim     = !r.exposureCompatible
 
-              // Row tints
               let rowStyle: React.CSSProperties = {}
               if (isBase)        rowStyle = { boxShadow: 'inset 0 0 0 9999px rgba(239,68,68,0.10)', borderColor: '#fecaca' }
               else if (isWorst)  rowStyle = { boxShadow: 'inset 0 0 0 9999px rgba(245,158,11,0.10)', borderColor: '#f59e0b' }
@@ -168,10 +162,8 @@ export default function ResultsTable({
               const leftStripe = isBest ? '#10b981' : (isBase ? '#ef4444' : (isWorst ? '#f59e0b' : '#e5e7eb'))
               const trClass = ['tr-elevated', isSel ? 'tr-selected' : '', dim ? 'row-dim' : ''].join(' ').trim()
 
-              // SCM chips (codes) with tooltip help — keep inline tooltip for simplicity
               const scmChips = (r.cement.scms?.length ? r.cement.scms.map(s => s.type) : ['OPC'])
 
-              // Pill logic per legend
               const pct = r.gwpReductionPct
               let pill
               if (isBase) {
@@ -191,6 +183,8 @@ export default function ResultsTable({
                 ? (perCementDosage?.[r.cement.id] ?? r.dosageUsed)
                 : r.dosageUsed
 
+              const inCompare = comparedIds?.includes(r.cement.id)
+
               return (
                 <tr
                   key={r.cement.id}
@@ -199,7 +193,19 @@ export default function ResultsTable({
                   style={{ ...rowStyle, cursor: onRowClick ? 'pointer' : 'default', borderLeft: `4px solid ${leftStripe}` }}
                 >
                   <td className="cell-title">
-                    <div className="title">{r.cement.cement_type}</div>
+                    <div className="title" style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8 }}>
+                      <span>{r.cement.cement_type}</span>
+                      {onToggleCompare && (
+                        <button
+                          className="btn"
+                          style={{ padding:'4px 8px', fontSize:12 }}
+                          onClick={(e)=>{ e.stopPropagation(); onToggleCompare(r.cement.id) }}
+                          title={inCompare ? 'Remove from compare' : 'Add to compare'}
+                        >
+                          {inCompare ? '✓ In compare' : '+ Compare'}
+                        </button>
+                      )}
+                    </div>
 
                     {scmChips.length > 0 && (
                       <div style={{ marginTop: 6 }}>
@@ -229,6 +235,7 @@ export default function ResultsTable({
                           onPerCementDosageChange!(r.cement.id, Number(e.target.value) || 0)
                         }
                         title="Edit dosage for this cement (kg/m³)"
+                        onWheel={(e)=> (e.currentTarget as HTMLInputElement).blur()}
                       />
                     ) : (
                       <span className="num-strong">{formatNumber(dosageValue)}</span>
