@@ -123,7 +123,7 @@ export default function Inputs({ state, setState }: Props) {
           </div>
 
           <p className="small" style={{ marginTop: 6 }}>
-            A4 = distance (km) × transport EF per cement. Set distance even if disabled; it’s remembered.
+            Transport to the construction site - logistics
           </p>
         </div>
 
