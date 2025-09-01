@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { ResultRow } from '../lib/types'
 import { formatNumber } from '../lib/calc'
 
@@ -10,11 +10,28 @@ type Props = {
   baselineLabel?: string
 }
 
+type TipState = {
+  show: boolean
+  x: number
+  y: number
+  fill: string
+  name: string
+  total: number
+  isBaseline: boolean
+  pct: number
+}
+
 export default function BarChart({
   rows, bestId, opcBaselineId, baselineEf, baselineLabel
 }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const selected = useMemo(() => rows.find(r => r.cement.id === selectedId) || null, [rows, selectedId])
+  const [tip, setTip] = useState<TipState | null>(null)
+  const wrapRef = useRef<HTMLDivElement>(null)
+
+  const selected = useMemo(
+    () => rows.find(r => r.cement.id === selectedId) || null,
+    [rows, selectedId]
+  )
 
   if (!rows.length) return null
 
@@ -113,6 +130,26 @@ export default function BarChart({
     )
   }
 
+  // --- Tooltip helpers ---
+  const showTip = (evt: React.MouseEvent, r: ResultRow, fill: string) => {
+    const wrap = wrapRef.current
+    if (!wrap) return
+    const rect = wrap.getBoundingClientRect()
+    const x = evt.clientX - rect.left
+    const y = evt.clientY - rect.top
+    setTip({
+      show: true,
+      x,
+      y,
+      fill,
+      name: r.cement.cement_type,
+      total: r.totalElement,
+      isBaseline: r.cement.id === opcBaselineId,
+      pct: r.gwpReductionPct,
+    })
+  }
+  const hideTip = () => setTip(null)
+
   return (
     <div className="card">
       <h2 style={{ fontSize: 18, fontWeight: 600, marginTop: 0, marginBottom: 4 }}>
@@ -120,7 +157,13 @@ export default function BarChart({
       </h2>
       <div className="small" style={{ marginBottom: 8, color: '#475569' }}>{baselineText}</div>
 
-      <div className="chart-scroll" role="region" aria-label="CO2e bar chart">
+      <div
+        className="chart-scroll"
+        role="region"
+        aria-label="CO2e bar chart"
+        ref={wrapRef}
+        style={{ position: 'relative' }}  // needed to position the tooltip
+      >
         <svg
           viewBox={`0 0 ${w} ${h}`}
           style={{ width: '100%', height: 'auto' }}
@@ -134,7 +177,9 @@ export default function BarChart({
               return (
                 <g key={i}>
                   <line x1={0} x2={iw} y1={y} y2={y} stroke="#e5e7eb" />
-                  <text x={-10} y={y + 4} textAnchor="end" fontSize="12" fill="#475569">{tv}</text>
+                  <text x={-10} y={y + 4} textAnchor="end" fontSize="12" fill="#475569">
+                    {formatNumber(tv)}
+                  </text>
                 </g>
               )
             })}
@@ -147,7 +192,6 @@ export default function BarChart({
               const fill = colorFor(r)
               const isSelected = selectedId === r.cement.id
               const isBaseline = r.cement.id === opcBaselineId
-              const reductionLabel = r.gwpReductionPct >= 0 ? `↓ ${r.gwpReductionPct.toFixed(0)}%` : `↑ ${Math.abs(r.gwpReductionPct).toFixed(0)}%`
 
               return (
                 <g key={r.cement.id}>
@@ -161,7 +205,7 @@ export default function BarChart({
                     cursor="pointer"
                     role="button"
                     tabIndex={0}
-                    aria-label={`${r.cement.cement_type}. Total ${formatNumber(r.totalElement)} kilograms. ${isBaseline ? 'Baseline.' : `${reductionLabel} vs baseline.`}`}
+                    aria-label={`${r.cement.cement_type}. Total ${formatNumber(r.totalElement)} kilograms.`}
                     onClick={() => onBarActivate(r.cement.id)}
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onBarActivate(r.cement.id) }}
                     stroke={
@@ -170,16 +214,16 @@ export default function BarChart({
                       : (isBaseline ? '#991b1b'
                       : (r.cement.id === worstNonBaselineId ? '#b45309' : 'none')))}
                     strokeWidth={isSelected || r.cement.id === bestId || isBaseline || r.cement.id === worstNonBaselineId ? 1.5 : 0}
+                    onMouseMove={(e) => showTip(e, r, fill)}
+                    onMouseEnter={(e) => showTip(e, r, fill)}
+                    onMouseLeave={hideTip}
                   />
                   {drawLabelPill(x + bar / 2, y, isBaseline, r.gwpReductionPct)}
-                  <title>{`${r.cement.cement_type}
-Total: ${formatNumber(r.totalElement)} kg
-${isBaseline ? 'Baseline' : `Reduction vs baseline: ${reductionLabel}`}`}</title>
                 </g>
               )
             })}
 
-            {/* X labels always -45° so appearing labels don’t overlap */}
+            {/* X labels */}
             {rows.map((r, i) => {
               const x = i * step + step / 2
               const [l1, l2] = twoLine(r.cement.cement_type)
@@ -197,6 +241,41 @@ ${isBaseline ? 'Baseline' : `Reduction vs baseline: ${reductionLabel}`}`}</title
             })}
           </g>
         </svg>
+
+        {/* Custom tooltip */}
+        {tip?.show && (
+          <div
+            className="chart-tip"
+            style={{
+              position: 'absolute',
+              left: tip.x + 12,
+              top: tip.y - 12,
+              transform: 'translateY(-100%)',
+              pointerEvents: 'none',
+            }}
+          >
+            <div className="chart-tip__title">{tip.name}</div>
+            <div className="chart-tip__rows">
+              <div className="chart-tip__row">
+                <span className="chart-tip__dot" style={{ background: tip.fill }} />
+                <span className="chart-tip__name">Total CO₂ element</span>
+                <span className="chart-tip__value">{formatNumber(tip.total)}</span>
+                <span className="chart-tip__unit">kg</span>
+              </div>
+
+              <div className="chart-tip__row">
+                <span className="chart-tip__dot" style={{ background: tip.isBaseline ? '#ef4444' : '#94a3b8' }} />
+                <span className="chart-tip__name">Δ vs baseline</span>
+                <span className="chart-tip__value">
+                  {tip.isBaseline
+                    ? 'Baseline'
+                    : (tip.pct >= 0 ? `↓ ${Math.round(tip.pct)}%` : `↑ ${Math.abs(Math.round(tip.pct))}%`)
+                  }
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Details / info panel */}
