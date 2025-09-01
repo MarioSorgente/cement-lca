@@ -11,7 +11,6 @@ type Props = {
 
 export default function CompareFab({ items, onOpen, onClear }: Props) {
   if (!items || items.length === 0) return null
-
   return (
     <div className="cmp-fab">
       <button className="cmp-fab-btn" onClick={onOpen} aria-label="Open comparison">
