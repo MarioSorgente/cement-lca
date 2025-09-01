@@ -9,7 +9,7 @@ export default function Tooltip({ text }: { text: string }) {
       onMouseLeave={() => setOpen(false)}
     >
       <span className="tooltip-icon">i</span>
-      {open && <span className="tooltip-box">{text}</span>}
+      {open && <span className="tooltip-box tooltip-right">{text}</span>}
     </span>
   )
 }
