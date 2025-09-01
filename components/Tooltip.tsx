@@ -1,19 +1,20 @@
+// components/Tooltip.tsx
 import React, { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 type Props = {
   text: string
   portal?: boolean
+  /** optional content to wrap; if omitted, a small "i" icon is rendered */
   children?: React.ReactNode
 }
 
-export default function Tooltip({ text, portal = false, children }: Props) {
+const Tooltip: React.FC<Props> = ({ text, portal = false, children }) => {
   const [open, setOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [coords, setCoords] = useState<{x:number;y:number;width:number;height:number}>({x:0,y:0,width:0,height:0})
   const ref = useRef<HTMLSpanElement | null>(null)
 
-  // Only true on the client
   useEffect(() => { setMounted(true) }, [])
 
   useEffect(() => {
@@ -22,7 +23,6 @@ export default function Tooltip({ text, portal = false, children }: Props) {
     setCoords({ x: rect.left, y: rect.top, width: rect.width, height: rect.height })
   }, [open, mounted])
 
-  // Compute left only in the browser
   const maxLeft = mounted && typeof window !== 'undefined' ? window.innerWidth - 240 : 0
   const tipLeft = portal ? Math.max(0, Math.min(coords.x, maxLeft)) : 0
 
@@ -81,3 +81,5 @@ export default function Tooltip({ text, portal = false, children }: Props) {
     </span>
   )
 }
+
+export default Tooltip
