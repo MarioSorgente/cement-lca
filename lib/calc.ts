@@ -1,5 +1,6 @@
 // lib/calc.ts
 import { Cement, InputsState, ResultRow, ExposureClass } from './types'
+import { tagsForCement } from './tags'
 
 export function formatNumber(n: number): string {
   try {
@@ -74,8 +75,11 @@ export function computeRows(
     const totalElement = co2ePerM3_A1A3 * inputs.volumeM3 + a4Transport
 
     const exposureCompatible = compatibleWithExposure(c, inputs.exposureClass)
+
+    // ✅ Use consistent, human-readable tags so filters work
+    const tags = tagsForCement(c)
+
     const gwpReductionPct = ((baselineEF - c.co2e_per_kg_binder_A1A3) / baselineEF) * 100
-    const tags = isOPC(c) ? ['OPC'] : (c.scms?.map(s => s.type) ?? [])
 
     return {
       cement: c,
