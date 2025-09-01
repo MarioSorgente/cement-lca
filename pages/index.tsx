@@ -16,19 +16,17 @@ import {
   type StrengthClass,
 } from '../lib/types'
 import {
-  computeRows,           // produces ResultRow[] from cements + inputs (+ optional baseline EF)
-  opcWorstBaseline,      // finds the worst OPC cement row
+  computeRows,
+  opcWorstBaseline,
   formatNumber,
-  exportRowsAsCsv,       // helper to export CSV (if you have it; otherwise see fallback below)
+  exportRowsAsCsv,
 } from '../lib/calc'
 
-// ---- UI enums / helper types (match your existing types) ----
 type SortKey =
   | 'cement' | 'strength' | 'clinker' | 'ef' | 'dosage' | 'a1a3' | 'a4' | 'total' | 'reduction'
 type SortDir = 'asc' | 'desc'
 type Scope = 'all' | 'compatible' | 'common'
 
-// ---- Default inputs (adjust if yours differ) ----
 const DEFAULT_INPUTS: InputsState = {
   strengthClass: 'C25/30' as StrengthClass,
   exposureClass: 'XC2' as ExposureClass,
@@ -39,7 +37,6 @@ const DEFAULT_INPUTS: InputsState = {
   globalDosage: 300,
 }
 
-// ---- Sorting helpers ----
 function sortRows(rows: ResultRow[], key: SortKey, dir: SortDir): ResultRow[] {
   const mul = dir === 'asc' ? 1 : -1
   return [...rows].sort((a, b) => {
@@ -64,7 +61,6 @@ function sortRows(rows: ResultRow[], key: SortKey, dir: SortDir): ResultRow[] {
   }
 }
 
-// ---- CSV fallback (if your calc.ts doesn’t export exportRowsAsCsv) ----
 function fallbackExportCsv(rows: ResultRow[]) {
   const headers = [
     'Cement',
@@ -98,21 +94,13 @@ function fallbackExportCsv(rows: ResultRow[]) {
   URL.revokeObjectURL(url)
 }
 
-// ======================================================================
-// Page
-// ======================================================================
 const Home: NextPage = () => {
-  // ----- Inputs block -----
   const [inputs, setInputs] = useState<InputsState>(DEFAULT_INPUTS)
-
-  // Per-cement dosage map used when dosageMode === 'perCement'
   const [perCementDosage, setPerCementDosage] = useState<Record<string, number>>({})
-
   const handlePerCementDosageChange = (cementId: string, val: number) => {
     setPerCementDosage(prev => ({ ...prev, [cementId]: val }))
   }
 
-  // ----- Table controls -----
   const [pageSize, setPageSize] = useState<number>(50)
   const [sortKey, setSortKey] = useState<SortKey>('total')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
@@ -120,24 +108,19 @@ const Home: NextPage = () => {
   const [scope, setScope] = useState<Scope>('all')
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
-  // ----- Core rows compute -----
   const rowsRaw: ResultRow[] = useMemo(() => {
-    // NOTE: computeRows should already account for dosageMode & perCementDosage internally,
-    //       or at least return dosageUsed from global/per-cement logic.
-    // If your computeRows signature differs, adapt here accordingly.
     return computeRows(ALL_CEMENTS, inputs, /* baselineEFNullable */ null, perCementDosage)
   }, [inputs, perCementDosage])
 
-  // Baseline (worst OPC) info (for display hints and bar colors)
   const baseline = useMemo(() => opcWorstBaseline(rowsRaw), [rowsRaw])
 
-  // ----- Scope & search filters -----
   const rowsFiltered = useMemo(() => {
     let arr = rowsRaw
     if (scope === 'compatible') {
       arr = arr.filter(r => r.exposureCompatible)
     } else if (scope === 'common') {
-      arr = arr.filter(r => r.isCommon)
+      // <— changed here: read the flag on the cement itself
+      arr = arr.filter(r => Boolean((r.cement as any).common))
     }
     if (search.trim()) {
       const q = search.toLowerCase()
@@ -150,13 +133,11 @@ const Home: NextPage = () => {
     return arr
   }, [rowsRaw, scope, search])
 
-  // ----- Sort + paginate -----
   const rowsSorted = useMemo(
     () => sortRows(rowsFiltered, sortKey, sortDir),
     [rowsFiltered, sortKey, sortDir]
   )
 
-  // ----- Export -----
   const exportCsv = () => {
     try {
       if (typeof exportRowsAsCsv === 'function') {
@@ -169,20 +150,16 @@ const Home: NextPage = () => {
     }
   }
 
-  // ====================================================================
-  // (A) Compare state + helpers (block A)
-  // ====================================================================
+  // Compare state (A)
   const [comparedIds, setComparedIds] = useState<string[]>([])
   const [cmpOpen, setCmpOpen] = useState(false)
 
-  // Map rows by id for fast access
   const rowsById = useMemo(() => {
     const m: Record<string, ResultRow> = {}
     rowsSorted.forEach(r => { m[r.cement.id] = r })
     return m
   }, [rowsSorted])
 
-  // Items shown in the tray chips
   const comparedItems = useMemo(
     () => comparedIds
       .map(id => rowsById[id])
@@ -194,7 +171,7 @@ const Home: NextPage = () => {
   function toggleCompare(id: string) {
     setComparedIds(prev => {
       if (prev.includes(id)) return prev.filter(x => x !== id)
-      if (prev.length >= 3) return prev // cap at 3
+      if (prev.length >= 3) return prev
       return [...prev, id]
     })
   }
@@ -208,9 +185,6 @@ const Home: NextPage = () => {
     })
   }
 
-  // ====================================================================
-  // Render
-  // ====================================================================
   const hasRows = rowsSorted.length > 0
   const baselineLabel = baseline ? `${baseline.cement.cement_type} (${baseline.cement.strength_class})` : undefined
 
@@ -231,7 +205,6 @@ const Home: NextPage = () => {
         </div>
       </header>
 
-      {/* Inputs */}
       <div className="card">
         <Inputs
           inputs={inputs}
@@ -241,7 +214,6 @@ const Home: NextPage = () => {
         />
       </div>
 
-      {/* Results and toolbar */}
       <ResultsTable
         rows={rowsSorted.slice(0, pageSize)}
         pageSize={pageSize}
@@ -249,8 +221,7 @@ const Home: NextPage = () => {
         sortKey={sortKey}
         sortDir={sortDir}
         onSortChange={(k) => {
-          // Toggle direction if same key; otherwise default to asc for numeric downs (total/reduction often asc)
-          setSortDir(prev => (k === sortKey ? (prev === 'asc' ? 'desc' : 'asc') : (k === 'cement' || k === 'strength' ? 'asc' : 'asc')))
+          setSortDir(prev => (k === sortKey ? (prev === 'asc' ? 'desc' : 'asc') : 'asc'))
           setSortKey(k)
         }}
         search={search}
@@ -265,7 +236,6 @@ const Home: NextPage = () => {
         dosageMode={inputs.dosageMode}
         perCementDosage={perCementDosage}
         onPerCementDosageChange={handlePerCementDosageChange}
-        /* (B) Compare hooks into the table */
         comparedIds={comparedIds}
         onToggleCompare={toggleCompare}
       />
@@ -280,14 +250,12 @@ const Home: NextPage = () => {
         />
       )}
 
-      {/* (B) Sticky tray at bottom */}
       <CompareTray
         items={comparedItems}
         onOpen={() => setCmpOpen(true)}
         onRemove={removeFromCompare}
       />
 
-      {/* (B) Slide-over compare panel */}
       <ComparePanel
         open={cmpOpen}
         onClose={() => setCmpOpen(false)}
