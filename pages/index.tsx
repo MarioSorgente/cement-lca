@@ -1,4 +1,5 @@
 // pages/index.tsx
+// pages/index.tsx
 import React, { useMemo, useState } from 'react'
 import type { NextPage } from 'next'
 
@@ -8,16 +9,12 @@ import BarChart from '../components/BarChart'
 import CompareTray from '../components/CompareTray'
 import ComparePanel from '../components/ComparePanel'
 
-// pages/index.tsx (top)
-import type { Cement } from '../lib/types'
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const ALL_CEMENTS = require('../public/data/cements.json') as Cement[]
-
 import {
   type InputsState,
   type ResultRow,
   type ExposureClass,
   type StrengthClass,
+  type Cement,
 } from '../lib/types'
 import {
   computeRows,
@@ -25,6 +22,11 @@ import {
   formatNumber,
   exportRowsAsCsv,
 } from '../lib/calc'
+
+// ⬇️ Load the dataset directly from /public (no lib/data.ts needed)
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const ALL_CEMENTS: Cement[] = require('../public/data/cements.json') as Cement[]
+
 
 type SortKey =
   | 'cement' | 'strength' | 'clinker' | 'ef' | 'dosage' | 'a1a3' | 'a4' | 'total' | 'reduction'
