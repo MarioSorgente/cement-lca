@@ -278,7 +278,7 @@ body { margin: 0; background: var(--bg); color: var(--text); }
   display: block;
 }
 
-/* Portal-based tooltips (used for column headers / inputs) */
+/* Portal-based tooltips (used in table headers / sticky areas) */
 .tooltip-trigger {
   position: relative;
   display: inline-flex;
@@ -286,11 +286,9 @@ body { margin: 0; background: var(--bg); color: var(--text); }
   margin-left: 6px;
   cursor: help;
 }
-
-/* Rendered into <body> via portal, so it never gets clipped */
 .tooltip-portal {
   position: fixed;
-  transform: translateY(-50%);     /* vertically center on icon */
+  transform: translateY(-50%);
   background: #1e293b;
   color: #fff;
   padding: 10px 12px;
@@ -299,9 +297,7 @@ body { margin: 0; background: var(--bg); color: var(--text); }
   line-height: 1.4;
   max-width: 440px;
   box-shadow: 0 10px 28px rgba(16,24,40,0.22);
-  z-index: 100000;                 /* above sticky headers and rows */
-  pointer-events: none;            /* no interference with sorting clicks */
+  z-index: 100000;
+  pointer-events: none;
 }
-
-
 
