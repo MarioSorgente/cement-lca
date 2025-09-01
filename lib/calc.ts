@@ -1,99 +1,172 @@
 // lib/calc.ts
-import { Cement, InputsState, ResultRow, ExposureClass } from './types'
-import { tagsForCement } from './tags'
+import { InputsState, ResultRow, Cement } from './types'
 
-/** Format numbers with thousand separators */
+/**
+ * FORMATTERS
+ */
 export function formatNumber(n: number): string {
-  try {
-    return new Intl.NumberFormat(undefined, {
-      maximumFractionDigits: 0,
-    }).format(n)
-  } catch {
-    return Math.round(n).toString()
+  if (n === null || n === undefined || Number.isNaN(n)) return '0'
+  return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(n)
+}
+
+/**
+ * Transport EF for A4 (kg CO2e per tonne-km).
+ * If you already have a project-specific EF, replace this value
+ * and keep the math below identical.
+ */
+const TRANSPORT_EF_TK = 0.1 // kg CO2e / (t·km)
+
+/**
+ * Compute whether a cement is compatible with the requested exposure class.
+ * If data is missing, we treat it as compatible (do-no-harm).
+ */
+function isExposureCompatible(c: Cement, exposureClass: InputsState['exposureClass']): boolean {
+  if (!exposureClass) return true
+  const list = (c as any).compatible_exposure_classes as string[] | undefined
+  if (!list || !list.length) return true
+  return list.includes(exposureClass as string)
+}
+
+/**
+ * Resolve the dosage to use for a cement, respecting global/per-cement mode.
+ * - perCement: first look in the provided map, fallback to global
+ * - global: always global
+ */
+function resolveDosage(c: Cement, inputs: InputsState, perCement?: Record<string, number>): number {
+  if (inputs.dosageMode === 'perCement' && perCement) {
+    const v = perCement[c.id]
+    if (typeof v === 'number' && v >= 0) return v
   }
+  return Math.max(0, Number(inputs.globalDosage ?? 0))
 }
 
-function isOPC(c: Cement): boolean {
-  return /^CEM\s*I\b/i.test(c.cement_type)
+/**
+ * Compute A1–A3 per m³ and A4 per element (kg),
+ * then total CO2e per element (kg).
+ */
+function elementImpacts(
+  cement: Cement,
+  dosageKgPerM3: number,
+  inputs: InputsState
+): { a1a3PerM3: number; a4: number; totalElement: number } {
+  const efA1A3 = Number(cement.co2e_per_kg_binder_A1A3 ?? 0) // kg/kg
+  const a1a3PerM3 = dosageKgPerM3 * efA1A3 // kg/m3
+
+  const vol = Math.max(0, Number(inputs.volumeM3 ?? 0)) // m3
+  const distanceKm = Math.max(0, Number(inputs.distanceKm ?? 0))
+  const includeA4 = !!inputs.includeA4
+
+  // mass to transport = dosage (kg/m3) * volume (m3) => kg, then convert to tonnes
+  const tonnes = (dosageKgPerM3 * vol) / 1000
+  const a4 = includeA4 ? tonnes * distanceKm * TRANSPORT_EF_TK : 0 // kg
+
+  const totalElement = a1a3PerM3 * vol + a4
+  return { a1a3PerM3, a4, totalElement }
 }
 
-/** Pick worst EF OPC as baseline; if no OPC present, worst EF overall. */
-export function opcWorstBaseline(cements: Cement[]):
-  | { id: string; ef: number; label: string } | null {
-  if (!cements?.length) return null
-  const opc = cements.filter(isOPC)
+/**
+ * Baseline EF (kg/kg) is the EF of the worst OPC.
+ * If no OPC exists in the dataset, use the worst EF overall.
+ */
+function baselineEfFromCements(cements: Cement[]): number {
+  const opc = cements.filter(c => (c.scms?.length ?? 0) === 0 || c.cement_type?.toUpperCase()?.includes('OPC'))
   const pool = opc.length ? opc : cements
   const worst = pool.reduce((m, c) =>
     (c.co2e_per_kg_binder_A1A3 > m.co2e_per_kg_binder_A1A3 ? c : m), pool[0])
-  return {
-    id: worst.id,
-    ef: worst.co2e_per_kg_binder_A1A3,
-    label: `${worst.cement_type} (worst ${opc.length ? 'OPC' : 'overall'})`,
-  }
+  return Number(worst?.co2e_per_kg_binder_A1A3 ?? 0)
 }
 
-/** Exposure compatibility: if no class requested or no data, treat as compatible. */
-function compatibleWithExposure(c: Cement, exposureClass: ExposureClass): boolean {
-  if (!exposureClass) return true
-  if (!c.compatible_exposure_classes?.length) return true
-  return c.compatible_exposure_classes.includes(exposureClass)
-}
-
-/** Resolve binder dosage (kg/m³) based on user mode and per-cement overrides. */
-function resolveDosage(c: Cement, inputs: InputsState): number {
-  if (inputs.dosageMode === 'perCement') {
-    const per = inputs.perCementDosage?.[c.id]
-    if (typeof per === 'number' && per > 0) return per
-    return c.default_dosage_kg_per_m3
-  }
-  if (typeof inputs.globalDosage === 'number' && inputs.globalDosage > 0) {
-    return inputs.globalDosage
-  }
-  return c.default_dosage_kg_per_m3
-}
-
-/** Compute table/chart rows using current inputs; baselineEF can be null */
+/**
+ * PUBLIC: compute rows for table/chart.
+ * Δ vs baseline is EF-based (as requested).
+ */
 export function computeRows(
   cements: Cement[],
   inputs: InputsState,
-  baselineEFNullable: number | null
+  baselineEFNullable: number | null = null,
+  perCementDosage?: Record<string, number>
 ): ResultRow[] {
-  if (!cements?.length) return []
-  const baselineEF = baselineEFNullable ??
-    (() => {
-      const base = opcWorstBaseline(cements)
-      return base ? base.ef : Math.max(...cements.map(c => c.co2e_per_kg_binder_A1A3))
-    })()
+  if (!Array.isArray(cements) || !cements.length) return []
 
-  return cements.map(c => {
-    const dosageUsed = resolveDosage(c, inputs)
-    const co2ePerM3_A1A3 = dosageUsed * c.co2e_per_kg_binder_A1A3
+  const baselineEF = typeof baselineEFNullable === 'number'
+    ? baselineEFNullable
+    : baselineEfFromCements(cements)
 
-    // A4 transport: factor (kg CO2e / m3 / km) * distanceKm * volumeM3
-    const a4Transport = inputs.includeA4
-      ? c.transport_ef_kg_per_m3_km * inputs.distanceKm * inputs.volumeM3
+  const rows: ResultRow[] = cements.map((c) => {
+    const dosageUsed = resolveDosage(c, inputs, perCementDosage)
+    const { a1a3PerM3, a4, totalElement } = elementImpacts(c, dosageUsed, inputs)
+
+    // EF-based reduction vs baseline EF (keep your existing logic)
+    const ef = Number(c.co2e_per_kg_binder_A1A3 ?? 0)
+    const gwpReductionPct = baselineEF > 0
+      ? ((baselineEF - ef) / baselineEF) * 100
       : 0
 
-    // Total for the element: (A1-A3 per m3 * volume) + optional A4
-    const totalElement = co2ePerM3_A1A3 * inputs.volumeM3 + a4Transport
-
-    const exposureCompatible = compatibleWithExposure(c, inputs.exposureClass)
-
-    // Use consistent, human-readable tags
-    const tags = tagsForCement(c)
-
-    const gwpReductionPct =
-      ((baselineEF - c.co2e_per_kg_binder_A1A3) / baselineEF) * 100
-
-    return {
+    const row: ResultRow = {
       cement: c,
+      exposureCompatible: isExposureCompatible(c, inputs.exposureClass),
+      isCommon: !!(c as any).common,
+
       dosageUsed,
-      co2ePerM3_A1A3,
-      a4Transport,
+      co2ePerM3_A1A3: a1a3PerM3,
+      a4Transport: a4,
       totalElement,
-      exposureCompatible,
-      tags,
+
       gwpReductionPct,
     }
+    return row
   })
+
+  return rows
+}
+
+/**
+ * PUBLIC: find baseline (worst OPC) row from computed rows.
+ * If no OPC among rows, pick the highest EF row.
+ */
+export function opcWorstBaseline(rows: ResultRow[]): ResultRow | undefined {
+  if (!rows?.length) return undefined
+  const opcRows = rows.filter(r =>
+    (r.cement.scms?.length ?? 0) === 0 || r.cement.cement_type?.toUpperCase()?.includes('OPC')
+  )
+  const pool = opcRows.length ? opcRows : rows
+  return pool.reduce((m, r) =>
+    (r.cement.co2e_per_kg_binder_A1A3 > m.cement.co2e_per_kg_binder_A1A3 ? r : m), pool[0])
+}
+
+/**
+ * OPTIONAL: export CSV for current rows.
+ */
+export function exportRowsAsCsv(rows: ResultRow[]) {
+  const headers = [
+    'Cement',
+    'Strength',
+    'Clinker%',
+    'EF (kgCO2/kg)',
+    'Dosage (kg/m3)',
+    'A1-A3 (kg/m3)',
+    'A4 (kg)',
+    'Total element (kg)',
+    'Δ vs baseline (%)',
+  ]
+  const lines = rows.map(r => [
+    r.cement.cement_type,
+    r.cement.strength_class,
+    Math.round((r.cement.clinker_fraction ?? 0) * 100),
+    Number(r.cement.co2e_per_kg_binder_A1A3 ?? 0).toFixed(3),
+    r.dosageUsed,
+    r.co2ePerM3_A1A3,
+    r.a4Transport,
+    r.totalElement,
+    Math.round(r.gwpReductionPct),
+  ])
+
+  const csv = [headers.join(','), ...lines.map(arr => arr.join(','))].join('\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'cement-results.csv'
+  a.click()
+  URL.revokeObjectURL(url)
 }
