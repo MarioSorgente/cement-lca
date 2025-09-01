@@ -247,3 +247,35 @@ body { margin: 0; background: var(--bg); color: var(--text); }
   border-color: #e5e7eb;
 }
 
+/* Ensure tooltips always appear above table headers */
+.tooltip-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  cursor: help;
+  z-index: 50; /* ensures wrapper is above table cell */
+}
+
+.tooltip-box {
+  display: none;
+  position: absolute;
+  top: 50%;
+  left: 22px;
+  transform: translateY(-50%);
+  max-width: 320px;
+  white-space: normal;
+  background: #1e293b;
+  color: #fff;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  box-shadow: 0 8px 24px rgba(16,24,40,0.2);
+  z-index: 9999; /* put tooltip itself above everything */
+}
+
+.tooltip-wrapper:hover .tooltip-box {
+  display: block;
+}
+
+
