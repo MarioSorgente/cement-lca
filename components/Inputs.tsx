@@ -39,14 +39,13 @@ export default function Inputs({ inputs, onChange }: Props) {
 
   return (
     <div className="card" style={{ marginBottom: 16 }}>
-      <h2 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 10px' }}>Inputs</h2>
+      <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 14px' }}>Design Inputs</h2>
 
-      {/* Row 1: Exposure + Volume */}
-      <div className="grid" style={{ gridTemplateColumns:'1fr 1fr', gap: 12, marginBottom: 10 }}>
+      {/* Top row: Exposure + Volume */}
+      <div className="grid" style={{ gridTemplateColumns:'1fr 1fr', gap: 16, marginBottom: 12 }}>
         <div>
           <label className="label">
-            Exposure class
-            <Tooltip text="EN 206 durability class (e.g., XC3). Used to flag compatibility per cement." />
+            Exposure class <Tooltip text="EN 206 durability class (e.g., XC3)" />
           </label>
           <select
             className="select"
@@ -59,8 +58,7 @@ export default function Inputs({ inputs, onChange }: Props) {
 
         <div>
           <label className="label">
-            Volume (m³)
-            <Tooltip text="Concrete element volume. Scales total embodied carbon." />
+            Volume (m³) <Tooltip text="Volume of the concrete element." />
           </label>
           <input
             className="input"
@@ -73,14 +71,14 @@ export default function Inputs({ inputs, onChange }: Props) {
         </div>
       </div>
 
-      {/* Row 2: A4 transport + Dosage block */}
-      <div className="grid" style={{ gridTemplateColumns:'1fr 1fr', gap: 12 }}>
-        {/* A4 transport */}
+      {/* Second row: Transport & A4 (left)  |  Dosage box (right) */}
+      <div className="grid" style={{ gridTemplateColumns:'1fr 1fr', gap: 16 }}>
+        {/* Transport & A4 */}
         <div>
-          <label className="label">
-            Transport (A4)
-            <Tooltip text="If enabled, adds A4 = distance × EF per cement." />
-          </label>
+          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:6 }}>
+            <div style={{ fontWeight:600 }}>Transport & A4</div>
+            <Tooltip text="Transport to construction site, adds A4 when enabled." />
+          </div>
 
           <div className="grid" style={{ gridTemplateColumns: 'auto 1fr', gap: 8, alignItems:'center' }}>
             <label className="small" style={{ display:'inline-flex', alignItems:'center', gap: 8 }}>
@@ -89,28 +87,32 @@ export default function Inputs({ inputs, onChange }: Props) {
                 checked={inputs.includeA4}
                 onChange={(e) => onChange({ ...inputs, includeA4: e.target.checked })}
               />
-              Include A4
+              Include A4 transport
             </label>
 
             <input
               className="input"
               type="text"
               inputMode="decimal"
-              placeholder="Distance (km)"
+              placeholder="0"
               value={distDraft}
               onChange={(e) => setDistDraft(e.target.value)}
               onBlur={() => onChange({ ...inputs, distanceKm: numberFromDraft(distDraft, inputs.distanceKm) })}
             />
           </div>
 
-          <p className="small" style={{ marginTop: 6 }}>Enter km to site logistics.</p>
+          <div className="small" style={{ color:'var(--muted)', marginTop: 6 }}>
+            Transport to the construction site – logistics
+          </div>
         </div>
 
-        {/* Dosage block */}
-        <div>
-          <label className="label">Dosage</label>
+        {/* Dosage (boxed) */}
+        <div className="card" style={{ margin: 0, padding: 12 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
+            <div style={{ fontWeight:600 }}>Dosage</div>
+            <Tooltip text="Choose a global dosage or switch to per-cement editing in the table." />
+          </div>
 
-          {/* Mode radios */}
           <div className="radio-row" style={{ marginBottom: 8 }}>
             <label>
               <input
@@ -135,8 +137,7 @@ export default function Inputs({ inputs, onChange }: Props) {
           <div className="grid" style={{ gridTemplateColumns:'1fr 1fr', gap: 8 }}>
             <div>
               <label className="label" style={{ marginBottom: 6 }}>
-                Concrete strength
-                <Tooltip text="Used to pre-fill a sensible global binder dosage (you can tweak it)." />
+                Concrete strength <Tooltip text="Used to pre-fill a sensible global dosage." />
               </label>
               <select
                 className="select"
@@ -157,7 +158,7 @@ export default function Inputs({ inputs, onChange }: Props) {
 
             <div>
               <label className="label" style={{ marginBottom: 6 }}>
-                Global dosage (kg/m³)
+                Global dosage (kg/m³) <Tooltip text="Global binder dosage when not in per-cement mode." />
               </label>
               <input
                 className="input"
@@ -169,11 +170,6 @@ export default function Inputs({ inputs, onChange }: Props) {
                 onChange={(e) => setDosageDraft(e.target.value)}
                 onBlur={() => !perCement && onChange({ ...inputs, globalDosage: numberFromDraft(dosageDraft, inputs.globalDosage) })}
               />
-              {perCement && (
-                <div className="small" style={{ marginTop: 6 }}>
-                  Per-cement mode is active. Edit dosage in the table rows.
-                </div>
-              )}
             </div>
           </div>
         </div>
