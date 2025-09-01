@@ -84,7 +84,7 @@ export default function ResultsTable({
               <Th k="dosage"    label="Dosage (kg/m³)"     sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}/>
               <Th k="a1a3"      label="CO₂e A1–A3 (kg/m³)" sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}/>
               <Th k="a4"        label="A4 (kg)"            sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}/>
-              <Th k="total"     label="Total element (kg)" sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}/>
+              <Th k="total"     label="Total CO₂ element (kg)" sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}/>
               <Th k="reduction" label="Δ vs baseline"      sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange}/>
             </tr>
           </thead>
