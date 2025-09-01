@@ -1,8 +1,8 @@
-import { useMemo } from 'react'
+// components/ResultsTable.tsx
+import React, { useMemo } from 'react'
 import { InputsState, ResultRow } from '../lib/types'
 import { formatNumber } from '../lib/calc'
 
-/** Keep local sort and scope aliases to match index.tsx usage */
 type SortKey =
   | 'cement' | 'strength' | 'clinker' | 'ef' | 'dosage' | 'a1a3' | 'a4' | 'total' | 'reduction'
 type Scope = 'all' | 'compatible' | 'common'
@@ -11,70 +11,49 @@ type Props = {
   rows: ResultRow[]
   pageSize: number
   onPageSize: (n: number) => void
-
   sortKey: SortKey
   sortDir: 'asc' | 'desc'
   onSortChange: (k: SortKey) => void
-
   search: string
   onSearch: (s: string) => void
-
   scope: Scope
   onScope: (s: Scope) => void
-
   onExport: () => void
-
   onRowClick?: (id: string) => void
   selectedId?: string | null
-
   bestId?: string
   baselineId?: string
-
   dosageMode?: InputsState['dosageMode']
   perCementDosage?: Record<string, number>
   onPerCementDosageChange?: (cementId: string, val: number) => void
 }
 
-/** Short, human help for tag tooltips */
-const TAG_HELP: Record<string, string> = {
-  OPC: 'Ordinary Portland Cement (CEM I). Typically higher clinker.',
-  Slag: 'Contains ground granulated blast-furnace slag (S).',
-  FlyAsh: 'Contains fly ash (V).',
-  Pozzolana: 'Contains natural/industrial pozzolans (P).',
-  Limestone: 'Contains limestone filler (LL).',
-  CalcinedClay: 'Contains calcined clay (CC).',
-  Composite: 'Composite cement: multiple SCMs.',
+const SCM_MEANINGS: Record<string, string> = {
+  OPC: 'Ordinary Portland cement (no SCMs).',
+  S:   'GGBS / Slag: improves chloride resistance & lowers CO₂.',
+  V:   'Fly ash: moderates heat; slower early strength; CO₂ cut.',
+  P:   'Natural pozzolana: long-term strength; CO₂ cut.',
+  LL:  'High-purity limestone: workability & modest CO₂ cut.',
+  CC:  'Calcined clay: strong CO₂ cut when blended with limestone.',
 }
 
-function Th({
-  label,
-  sortKey,
-  activeKey,
-  dir,
-  onSort,
-  help,
-}: {
+function Th({ k, label, sortKey, sortDir, onSortChange, help }: {
+  k: SortKey
   label: string
   sortKey: SortKey
-  activeKey: SortKey
-  dir: 'asc' | 'desc'
-  onSort: (k: SortKey) => void
+  sortDir: 'asc' | 'desc'
+  onSortChange: (k: SortKey) => void
   help?: string
 }) {
-  const isActive = activeKey === sortKey
+  const active = sortKey === k
   return (
-    <th
-      className="th-sort"
-      onClick={() => onSort(sortKey)}
-      title={help}
-      style={{ whiteSpace: 'nowrap' }}
-    >
+    <th className="th-sort" onClick={() => onSortChange(k)} title={help} style={{ whiteSpace: 'nowrap' }}>
       <span className="th-label">{label}</span>
-      <span className="sort-caret">{isActive ? (dir === 'asc' ? ' ▲' : ' ▼') : ''}</span>
+      <span className="sort-caret">{active ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</span>
       {help && (
         <span className="th-help">
           <span className="tooltip-icon">i</span>
-          <span className="tooltip-right tooltip-box">{help}</span>
+          <span className="tooltip-box tooltip-right">{help}</span>
         </span>
       )}
     </th>
@@ -82,37 +61,33 @@ function Th({
 }
 
 export default function ResultsTable({
-  rows,
-  pageSize,
-  onPageSize,
-  sortKey,
-  sortDir,
-  onSortChange,
-  search,
-  onSearch,
-  scope,
-  onScope,
-  onExport,
-  onRowClick,
-  selectedId,
-  bestId,
-  baselineId,
-  dosageMode,
-  perCementDosage,
-  onPerCementDosageChange,
+  rows, pageSize, onPageSize,
+  sortKey, sortDir, onSortChange,
+  search, onSearch,
+  scope, onScope,
+  onExport, onRowClick, selectedId,
+  bestId, baselineId,
+  dosageMode, perCementDosage, onPerCementDosageChange,
 }: Props) {
-  const totalCount = rows.length
-  const pageRows = useMemo(() => rows.slice(0, pageSize), [rows, pageSize])
+
+  const worstNonBaselineId = useMemo(() => {
+    const pool = rows.filter(r => r.cement.id !== baselineId)
+    if (!pool.length) return undefined
+    const worst = pool.reduce((m, r) => (r.gwpReductionPct < m.gwpReductionPct ? r : m), pool[0])
+    return worst.cement.id
+  }, [rows, baselineId])
 
   const headerHelp = {
-    clinker: 'Clinker content by fraction; lower is typically better for GWP.',
-    ef: 'Embodied carbon per kg of binder for A1–A3.',
-    dosage: 'Binder dosage in kg per m³ of concrete.',
-    a1a3: 'A1–A3 contribution per m³ (dosage × EF).',
-    a4: 'Transport stage A4 for the whole element (distance × transport EF × volume).',
-    total: 'A1–A3 per element + optional A4 transport.',
+    clinker:   'Clinker content by fraction; lower is typically better for GWP.',
+    ef:        'Embodied carbon per kg of binder for A1–A3.',
+    dosage:    'Binder dosage in kg per m³ of concrete.',
+    a1a3:      'A1–A3 contribution per m³ (dosage × EF).',
+    a4:        'Transport stage A4 for the whole element (distance × transport EF × volume).',
+    total:     'A1–A3 per element + optional A4 transport.',
     reduction: 'Percent improvement vs baseline EF (worst OPC by default).',
   }
+
+  const pageRows = useMemo(() => rows.slice(0, pageSize), [rows, pageSize])
 
   return (
     <>
@@ -125,27 +100,17 @@ export default function ResultsTable({
             value={search}
             onChange={(e) => onSearch(e.target.value)}
           />
-          <select
-            className="select"
-            value={scope}
-            onChange={(e) => onScope(e.target.value as Scope)}
-          >
+          <select className="select" value={scope} onChange={(e) => onScope(e.target.value as Scope)}>
             <option value="all">All rows</option>
             <option value="compatible">Exposure-compatible</option>
             <option value="common">Common</option>
           </select>
-          <select
-            className="select"
-            value={pageSize}
-            onChange={(e) => onPageSize(Number(e.target.value))}
-          >
-            {[25, 50, 100, 250].map(n => (
-              <option key={n} value={n}>{n}/page</option>
-            ))}
+          <select className="select" value={pageSize} onChange={(e) => onPageSize(Number(e.target.value))}>
+            {[25, 50, 100, 250].map(n => <option key={n} value={n}>{n}/page</option>)}
           </select>
           <button className="btn" onClick={onExport}>Export CSV</button>
         </div>
-        <div className="view-banner">Showing {formatNumber(pageRows.length)} of {formatNumber(totalCount)} results</div>
+        <div className="view-banner">Showing {formatNumber(pageRows.length)} of {formatNumber(rows.length)} results</div>
       </div>
 
       {/* Table */}
@@ -153,65 +118,70 @@ export default function ResultsTable({
         <table className="table">
           <thead>
             <tr>
-              <Th label="Cement" sortKey="cement" activeKey={sortKey} dir={sortDir} onSort={onSortChange} />
-              <Th label="Clinker" sortKey="clinker" activeKey={sortKey} dir={sortDir} onSort={onSortChange} help={headerHelp.clinker} />
-              <Th label="EF (kgCO₂/kg)" sortKey="ef" activeKey={sortKey} dir={sortDir} onSort={onSortChange} help={headerHelp.ef} />
-              <Th label="Dosage (kg/m³)" sortKey="dosage" activeKey={sortKey} dir={sortDir} onSort={onSortChange} help={headerHelp.dosage} />
-              <Th label="CO₂e A1–A3 (kg/m³)" sortKey="a1a3" activeKey={sortKey} dir={sortDir} onSort={onSortChange} help={headerHelp.a1a3} />
-              <Th label="A4 (kg)" sortKey="a4" activeKey={sortKey} dir={sortDir} onSort={onSortChange} help={headerHelp.a4} />
-              <Th label="Total CO₂ element (kg)" sortKey="total" activeKey={sortKey} dir={sortDir} onSort={onSortChange} help={headerHelp.total} />
-              <Th label="Δ vs baseline" sortKey="reduction" activeKey={sortKey} dir={sortDir} onSort={onSortChange} help={headerHelp.reduction} />
+              <Th k="cement"    label="Cement"                 sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} />
+              <Th k="clinker"   label="Clinker"                sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} help={headerHelp.clinker} />
+              <Th k="ef"        label="EF (kgCO₂/kg)"          sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} help={headerHelp.ef} />
+              <Th k="dosage"    label="Dosage (kg/m³)"         sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} help={headerHelp.dosage} />
+              <Th k="a1a3"      label="CO₂e A1–A3 (kg/m³)"     sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} help={headerHelp.a1a3} />
+              <Th k="a4"        label="A4 (kg)"                sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} help={headerHelp.a4} />
+              <Th k="total"     label="Total CO₂ element (kg)" sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} help={headerHelp.total} />
+              <Th k="reduction" label="Δ vs baseline"          sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} help={headerHelp.reduction} />
             </tr>
           </thead>
 
           <tbody>
-            {pageRows.map((r) => {
-              const isBest = bestId && r.cement.id === bestId
-              const isBaseline = baselineId && r.cement.id === baselineId
-              const isSelected = selectedId && r.cement.id === selectedId
+            {pageRows.map(r => {
+              const isSel   = selectedId === r.cement.id
+              const isBest  = r.cement.id === bestId
+              const isBase  = r.cement.id === baselineId
+              const isWorst = r.cement.id === worstNonBaselineId
+              const dim     = !r.exposureCompatible
 
-              const rowClass = [
-                'tr-elevated',
-                isBest ? 'row-best' : '',
-                isBaseline ? 'row-baseline' : '',
-                isSelected ? 'tr-selected' : '',
-              ].join(' ').trim()
+              let rowStyle: React.CSSProperties = {}
+              if (isBase)        rowStyle = { boxShadow: 'inset 0 0 0 9999px rgba(239,68,68,0.10)', borderColor: '#fecaca' }
+              else if (isWorst)  rowStyle = { boxShadow: 'inset 0 0 0 9999px rgba(245,158,11,0.10)', borderColor: '#f59e0b' }
+              else if (isBest)   rowStyle = { boxShadow: 'inset 0 0 0 9999px rgba(16,185,129,0.10)', borderColor: '#a7f3d0' }
 
-              const dosageEditable =
-                dosageMode === 'perCement' && !!onPerCementDosageChange
+              const leftStripe = isBest ? '#10b981' : (isBase ? '#ef4444' : (isWorst ? '#f59e0b' : '#e5e7eb'))
+              const trClass = ['tr-elevated', isSel ? 'tr-selected' : '', dim ? 'row-dim' : ''].join(' ').trim()
 
-              const dosageValue =
-                dosageEditable
-                  ? (perCementDosage?.[r.cement.id] ?? r.dosageUsed)
-                  : r.dosageUsed
+              const scmChips = (r.cement.scms?.length ? r.cement.scms.map(s => s.type) : ['OPC'])
+
+              const pct = r.gwpReductionPct
+              let pill
+              if (isBase) {
+                pill = <span className="pill pill-red">Baseline</span>  {/* ✅ red now */}
+              } else if (pct > 0) {
+                pill = <span className="pill pill-green">↓ {Math.round(pct)}%</span>
+              } else {
+                pill = <span className="pill pill-red">↑ {Math.abs(Math.round(pct))}%</span>
+              }
+
+              const dosageEditable = dosageMode === 'perCement' && !!onPerCementDosageChange
+              const dosageValue = dosageEditable
+                ? (perCementDosage?.[r.cement.id] ?? r.dosageUsed)
+                : r.dosageUsed
 
               return (
                 <tr
                   key={r.cement.id}
-                  className={rowClass}
+                  className={trClass}
                   onClick={() => onRowClick?.(r.cement.id)}
-                  style={{ cursor: onRowClick ? 'pointer' : 'default' }}
+                  style={{ ...rowStyle, cursor: onRowClick ? 'pointer' : 'default', borderLeft: `4px solid ${leftStripe}` }}
                 >
                   <td className="cell-title">
                     <div className="title">{r.cement.cement_type}</div>
-
-                    {/* strength + clinker line */}
                     <div className="small subtitle">
                       {r.cement.strength_class} • {Math.round(r.cement.clinker_fraction * 100)}% clinker
                     </div>
 
-                    {/* ✅ Restored category chips with tooltip info */}
-                    {r.tags?.length > 0 && (
+                    {scmChips.length > 0 && (
                       <div style={{ marginTop: 6 }}>
-                        {r.tags.map(tag => (
-                          <span
-                            key={tag}
-                            className="tag tooltip-wrapper"
-                            style={{ marginRight: 6, marginBottom: 4 }}
-                          >
+                        {scmChips.map(tag => (
+                          <span key={tag} className="tag tooltip-wrapper" style={{ marginRight: 6, marginBottom: 4 }}>
                             {tag}
                             <span className="tooltip-box tooltip-right">
-                              {TAG_HELP[tag] ?? tag}
+                              {SCM_MEANINGS[tag] ?? tag}
                             </span>
                           </span>
                         ))}
@@ -221,7 +191,6 @@ export default function ResultsTable({
 
                   <td className="num-strong">{Math.round(r.cement.clinker_fraction * 100)}%</td>
                   <td className="num-strong">{r.cement.co2e_per_kg_binder_A1A3.toFixed(3)}</td>
-
                   <td>
                     {dosageEditable ? (
                       <input
@@ -239,20 +208,10 @@ export default function ResultsTable({
                       <span className="num-strong">{formatNumber(dosageValue)}</span>
                     )}
                   </td>
-
                   <td className="num-strong">{formatNumber(r.co2ePerM3_A1A3)}</td>
                   <td className="num-strong">{formatNumber(r.a4Transport)}</td>
                   <td className="num-strong">{formatNumber(r.totalElement)}</td>
-
-                  <td>
-                    {r.gwpReductionPct > 0 ? (
-                      <span className="pill pill-green">↓ {Math.round(r.gwpReductionPct)}%</span>
-                    ) : r.gwpReductionPct === 0 ? (
-                      <span className="pill pill-amber">Baseline</span>
-                    ) : (
-                      <span className="pill pill-red">↑ {Math.abs(Math.round(r.gwpReductionPct))}%</span>
-                    )}
-                  </td>
+                  <td>{pill}</td>
                 </tr>
               )
             })}
@@ -260,9 +219,9 @@ export default function ResultsTable({
         </table>
 
         <div className="table-footer">
-          <div className="footer">Showing {formatNumber(pageRows.length)} of {formatNumber(totalCount)} results</div>
+          <div className="footer">Showing {formatNumber(pageRows.length)} of {formatNumber(rows.length)} results</div>
           <div className="pager">
-            <button className="button" onClick={() => onPageSize(Math.max(1, pageSize - 25))} disabled={pageSize <= 25}>–25</button>
+            <button className="button" onClick={() => onPageSize(Math.max(25, pageSize - 25))} disabled={pageSize <= 25}>–25</button>
             <button className="button" onClick={() => onPageSize(pageSize + 25)}>+25</button>
           </div>
         </div>
