@@ -1,4 +1,3 @@
-// components/Tooltip.tsx
 import React, { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
@@ -23,27 +22,16 @@ const Tooltip: React.FC<Props> = ({ text, portal = false, children }) => {
     setCoords({ x: rect.left, y: rect.top, width: rect.width, height: rect.height })
   }, [open, mounted])
 
-  const maxLeft = mounted && typeof window !== 'undefined' ? window.innerWidth - 240 : 0
-  const tipLeft = portal ? Math.max(0, Math.min(coords.x, maxLeft)) : 0
+  const maxLeft = mounted && typeof window !== 'undefined' ? window.innerWidth - 260 : 0
+  const tipLeft = portal ? Math.max(8, Math.min(coords.x, maxLeft)) : 0
 
   const Tip = (
     <div
-      className="tip"
+      className="tooltip-portal"
       style={{
         position: portal ? 'fixed' : 'absolute',
         top: portal ? coords.y + coords.height + 8 : '100%',
         left: tipLeft,
-        zIndex: 1000,
-        maxWidth: 220,
-        background: '#111827',
-        color: 'white',
-        padding: '6px 8px',
-        borderRadius: 6,
-        fontSize: 12,
-        boxShadow: '0 6px 16px rgba(0,0,0,.18)',
-        pointerEvents: 'none',
-        transform: portal ? undefined : 'translateY(8px)',
-        whiteSpace: 'normal',
       }}
       role="tooltip"
     >
@@ -56,12 +44,12 @@ const Tooltip: React.FC<Props> = ({ text, portal = false, children }) => {
       aria-label="Help"
       style={{
         display:'inline-flex',
-        width:18, height:18,
+        width:14, height:14,
         borderRadius:999,
         border:'1px solid #cbd5e1',
-        color:'#111827', background:'#fff',
+        color:'#334155', background:'#eef2f7',
         alignItems:'center', justifyContent:'center',
-        lineHeight:1, fontSize:12, fontWeight:700
+        lineHeight:1, fontSize:10, fontWeight:700
       }}
     >
       i
@@ -71,7 +59,7 @@ const Tooltip: React.FC<Props> = ({ text, portal = false, children }) => {
   return (
     <span
       ref={ref}
-      className="tip-anchor"
+      className="tooltip-trigger"
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
       style={{ position: 'relative', display: 'inline-flex', alignItems:'center' }}
