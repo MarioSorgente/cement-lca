@@ -2,8 +2,8 @@
 import React, { useMemo } from 'react'
 import { InputsState, ResultRow } from '../lib/types'
 import { formatNumber } from '../lib/calc'
+import Tooltip from './Tooltip'
 
-/** Keep local sort & scope to stay compatible with index.tsx */
 type SortKey =
   | 'cement' | 'strength' | 'clinker' | 'ef' | 'dosage' | 'a1a3' | 'a4' | 'total' | 'reduction'
 type Scope = 'all' | 'compatible' | 'common'
@@ -36,7 +36,6 @@ type Props = {
   onPerCementDosageChange?: (cementId: string, val: number) => void
 }
 
-/** SCM help (short codes, to match your previous chips) */
 const SCM_MEANINGS: Record<string, string> = {
   OPC: 'Ordinary Portland cement (no SCMs).',
   S:   'GGBS / Slag: improves chloride resistance & lowers CO₂.',
@@ -58,15 +57,14 @@ function Th({
 }) {
   const active = sortKey === k
   return (
-    <th className="th-sort" onClick={() => onSortChange(k)} title={help} style={{ whiteSpace: 'nowrap' }}>
+    <th
+      className="th-sort"
+      onClick={() => onSortChange(k)}
+      style={{ whiteSpace: 'nowrap', cursor: 'pointer' }}
+    >
       <span className="th-label">{label}</span>
+      {help && <Tooltip text={help} />}
       <span className="sort-caret">{active ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</span>
-      {help && (
-        <span className="th-help">
-          <span className="tooltip-icon">i</span>
-          <span className="tooltip-box tooltip-right">{help}</span>
-        </span>
-      )}
     </th>
   )
 }
@@ -81,11 +79,9 @@ export default function ResultsTable({
   dosageMode, perCementDosage, onPerCementDosageChange,
 }: Props) {
 
-  // ✅ single worst (closest to baseline) among non-baseline rows
   const worstNonBaselineId = useMemo(() => {
     const pool = rows.filter(r => r.cement.id !== baselineId)
     if (!pool.length) return undefined
-    // lower gwpReductionPct is "worse" (including negative = worse than baseline)
     const worst = pool.reduce((m, r) => (r.gwpReductionPct < m.gwpReductionPct ? r : m), pool[0])
     return worst.cement.id
   }, [rows, baselineId])
@@ -123,7 +119,9 @@ export default function ResultsTable({
           </select>
           <button className="btn" onClick={onExport}>Export CSV</button>
         </div>
-        <div className="view-banner">Showing {formatNumber(pageRows.length)} of {formatNumber(rows.length)} results</div>
+        <div className="view-banner">
+          Showing {formatNumber(pageRows.length)} of {formatNumber(rows.length)} results
+        </div>
       </div>
 
       {/* Table */}
@@ -150,41 +148,35 @@ export default function ResultsTable({
               const isWorst = r.cement.id === worstNonBaselineId
               const dim     = !r.exposureCompatible
 
-              // ✅ Row tints: Baseline red; worst (non-baseline) orange; best green.
               let rowStyle: React.CSSProperties = {}
               if (isBase)        rowStyle = { boxShadow: 'inset 0 0 0 9999px rgba(239,68,68,0.10)', borderColor: '#fecaca' }
               else if (isWorst)  rowStyle = { boxShadow: 'inset 0 0 0 9999px rgba(245,158,11,0.10)', borderColor: '#f59e0b' }
               else if (isBest)   rowStyle = { boxShadow: 'inset 0 0 0 9999px rgba(16,185,129,0.10)', borderColor: '#a7f3d0' }
 
               const leftStripe = isBest ? '#10b981' : (isBase ? '#ef4444' : (isWorst ? '#f59e0b' : '#e5e7eb'))
+              const trClass = ['tr-elevated', isSel ? 'tr-selected' : '', dim ? 'row-dim' : ''].join(' ').trim()
 
-              const trClass = [
-                'tr-elevated',
-                isSel ? 'tr-selected' : '',
-                dim ? 'row-dim' : '',
-              ].join(' ').trim()
-
-              // ✅ Short chips (as before): SCM codes or OPC
               const scmChips = (r.cement.scms?.length ? r.cement.scms.map(s => s.type) : ['OPC'])
 
-              // Δ pill (kept same semantics)
+              // Pill logic
               const pct = r.gwpReductionPct
               let pill
               if (isBase) {
-                pill = <span className="pill pill-amber">Baseline</span>
-              } else if (pct > 0) {
+                pill = <span className="pill pill-red">Baseline</span>
+              } else if (pct <= 0) {
+                pill = <span className="pill pill-red">↑ {Math.abs(Math.round(pct))}%</span>
+              } else if (pct <= 10) {
+                pill = <span className="pill pill-amber">↓ {Math.round(pct)}%</span>
+              } else if (pct <= 20) {
                 pill = <span className="pill pill-green">↓ {Math.round(pct)}%</span>
               } else {
-                pill = <span className="pill pill-red">↑ {Math.abs(Math.round(pct))}%</span>
+                pill = <span className="pill pill-deepgreen">↓ {Math.round(pct)}%</span>
               }
 
-              const dosageEditable =
-                dosageMode === 'perCement' && !!onPerCementDosageChange
-
-              const dosageValue =
-                dosageEditable
-                  ? (perCementDosage?.[r.cement.id] ?? r.dosageUsed)
-                  : r.dosageUsed
+              const dosageEditable = dosageMode === 'perCement' && !!onPerCementDosageChange
+              const dosageValue = dosageEditable
+                ? (perCementDosage?.[r.cement.id] ?? r.dosageUsed)
+                : r.dosageUsed
 
               return (
                 <tr
@@ -195,11 +187,7 @@ export default function ResultsTable({
                 >
                   <td className="cell-title">
                     <div className="title">{r.cement.cement_type}</div>
-                    <div className="small subtitle">
-                      {r.cement.strength_class} • {Math.round(r.cement.clinker_fraction * 100)}% clinker
-                    </div>
 
-                    {/* ✅ Category chips restored */}
                     {scmChips.length > 0 && (
                       <div style={{ marginTop: 6 }}>
                         {scmChips.map(tag => (
@@ -216,7 +204,6 @@ export default function ResultsTable({
 
                   <td className="num-strong">{Math.round(r.cement.clinker_fraction * 100)}%</td>
                   <td className="num-strong">{r.cement.co2e_per_kg_binder_A1A3.toFixed(3)}</td>
-
                   <td>
                     {dosageEditable ? (
                       <input
@@ -234,7 +221,6 @@ export default function ResultsTable({
                       <span className="num-strong">{formatNumber(dosageValue)}</span>
                     )}
                   </td>
-
                   <td className="num-strong">{formatNumber(r.co2ePerM3_A1A3)}</td>
                   <td className="num-strong">{formatNumber(r.a4Transport)}</td>
                   <td className="num-strong">{formatNumber(r.totalElement)}</td>
