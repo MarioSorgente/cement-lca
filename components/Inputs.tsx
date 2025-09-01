@@ -17,7 +17,7 @@ function Info({ text }: { text: string }) {
         <span style={{
           position: 'absolute', top: '120%', left: 0, background: '#0f172a', color: 'white',
           padding: '8px 10px', borderRadius: 8, fontSize: 12, whiteSpace: 'normal',
-          maxWidth: 300, boxShadow:'0 8px 20px rgba(0,0,0,0.25)', zIndex: 20
+          maxWidth: 320, boxShadow:'0 8px 20px rgba(0,0,0,0.25)', zIndex: 20
         }}>{text}</span>
       )}
     </span>
@@ -39,6 +39,7 @@ export default function Inputs({ state, setState }: { state: InputsState; setSta
 
       {/* Row 1 */}
       <div className="grid" style={{ gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12 }}>
+        {/* Exposure class */}
         <div>
           <label className="label">
             Exposure class
@@ -53,6 +54,7 @@ export default function Inputs({ state, setState }: { state: InputsState; setSta
           </select>
         </div>
 
+        {/* Volume */}
         <div>
           <label className="label">
             Volume (m³)
@@ -66,12 +68,21 @@ export default function Inputs({ state, setState }: { state: InputsState; setSta
           />
         </div>
 
+        {/* Transport & A4 */}
         <div>
           <label className="label">
             Transport & A4
-            <Info text="A4 = distance (km) × transport EF per cement. Set distance even if disabled; it’s remembered." />
+            <Info text="A4 = distance (km) × transport EF per cement. Set distance even if disabled; it's remembered." />
           </label>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div className="grid" style={{ gridTemplateColumns: 'auto 1fr', alignItems: 'center', gap: 8 }}>
+            <label className="small" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <input
+                type="checkbox"
+                checked={state.includeA4}
+                onChange={(e) => setState({ ...state, includeA4: e.target.checked })}
+              />
+              Include A4 transport
+            </label>
             <input
               type="number" min={0}
               className="input"
@@ -80,34 +91,60 @@ export default function Inputs({ state, setState }: { state: InputsState; setSta
               onChange={(e) => setState({ ...state, distanceKm: Number(e.target.value) || 0 })}
             />
           </div>
-          <label className="small" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
-            <input
-              type="checkbox"
-              checked={state.includeA4}
-              onChange={(e) => setState({ ...state, includeA4: e.target.checked })}
-            />
-            Include A4 transport
-          </label>
+          <p className="small" style={{ marginTop: 6 }}>
+            A4 = distance (km) × transport EF per cement. Set distance even if disabled; it’s remembered.
+          </p>
         </div>
 
+        {/* Dosage mode group with radios + global dosage */}
         <div>
-          <label className="label">
+          <label className="label" style={{ display: 'flex', alignItems: 'center' }}>
             Dosage mode
-            <Info text="Choose global dosage for all cements, or per-cement overrides." />
+            <Info text="Choose global dosage for all cements, or per-cement overrides in the table." />
           </label>
-          <select
-            className="select"
-            value={state.dosageMode}
-            onChange={(e) => setState({ ...state, dosageMode: e.target.value as InputsState['dosageMode'] })}
-          >
-            <option value="global">Global</option>
-            <option value="perCement">Per cement</option>
-          </select>
+
+          <div className="card" style={{ padding: 12, borderRadius: 10 }}>
+            <div className="small" style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 8 }}>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <input
+                  type="radio"
+                  name="dosage-mode"
+                  checked={state.dosageMode === 'global'}
+                  onChange={() => setState({ ...state, dosageMode: 'global' })}
+                />
+                Global
+              </label>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <input
+                  type="radio"
+                  name="dosage-mode"
+                  checked={state.dosageMode === 'perCement'}
+                  onChange={() => setState({ ...state, dosageMode: 'perCement' })}
+                />
+                Per cement
+              </label>
+            </div>
+
+            <div>
+              <label className="label" style={{ marginBottom: 6 }}>
+                Global dosage (kg/m³)
+                <Info text="Applied when Dosage mode = Global. When Per-cement, change dosage in the table below." />
+              </label>
+              <input
+                type="number" min={0}
+                className="input"
+                value={state.globalDosage}
+                disabled={perCement}
+                onChange={(e) => setState({ ...state, globalDosage: Number(e.target.value) || 0 })}
+              />
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Row 2 */}
       <div className="grid" style={{ gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12, marginTop: 12 }}>
+        {/* Concrete strength */}
         <div>
           <label className="label">
             Concrete strength
@@ -125,26 +162,8 @@ export default function Inputs({ state, setState }: { state: InputsState; setSta
           </select>
         </div>
 
-        <div>
-          <label className="label">
-            Global dosage (kg/m³)
-            <Info text="Applied when Dosage mode = Global. When Per-cement, change dosage in the table." />
-          </label>
-          <input
-            type="number" min={0}
-            className="input"
-            value={state.globalDosage}
-            onChange={(e) => setState({ ...state, globalDosage: Number(e.target.value) || 0 })}
-            disabled={perCement}
-          />
-          <p className="small" style={{ marginTop: 6 }}>
-            {perCement
-              ? 'Per-cement overrides enabled; edit in the table below.'
-              : 'Auto-set from strength class; you can tweak.'}
-          </p>
-        </div>
-
-        {/* Filler columns keep the grid clean on wide layouts */}
+        {/* The remaining columns are placeholders to preserve the previous airy layout */}
+        <div />
         <div />
         <div />
       </div>
