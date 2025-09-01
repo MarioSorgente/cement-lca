@@ -46,22 +46,18 @@ export default function Home() {
     load()
   }, [])
 
-  // Baseline: worst OPC if present, else worst EF overall
   const baseline = useMemo(() => opcWorstBaseline(cements), [cements])
 
-  // Compute all rows based on inputs and baseline EF
   const rowsAll = useMemo<ResultRow[]>(() => {
     return computeRows(cements, inputs, baseline?.ef ?? null)
   }, [cements, inputs, baseline?.ef])
 
-  // Scope filter (all | exposure-compatible | marked common)
   const rowsScoped = useMemo(() => {
     if (scope === 'compatible') return rowsAll.filter(r => r.exposureCompatible)
     if (scope === 'common')     return rowsAll.filter(r => r.cement.is_common)
     return rowsAll
   }, [rowsAll, scope])
 
-  // Text & tag-based filtering
   const rowsFiltered = useMemo(() => {
     const q = search.trim().toLowerCase()
     const tagOn = inputs.filters
@@ -69,7 +65,6 @@ export default function Home() {
       // tag filters
       const tagOk = r.tags.some(t => tagOn[t as keyof InputsState['filters']])
       if (!tagOk) return false
-      // text search
       if (!q) return true
       const c = r.cement
       const haystack = [
@@ -80,7 +75,6 @@ export default function Home() {
     })
   }, [rowsScoped, search, inputs.filters])
 
-  // Sorting
   const rowsSorted = useMemo(() => {
     const arr = [...rowsFiltered]
     const dir = sortDir === 'asc' ? 1 : -1
@@ -124,59 +118,47 @@ export default function Home() {
 
         <Inputs state={inputs} setState={setInputs} />
 
-        <div className="card" style={{ marginBottom: 16 }}>
-          <div className="grid" style={{ gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12 }}>
-            <div>
-              <label className="label">Search</label>
-              <input className="input" placeholder="CEM, class, notes…" value={search}
-                     onChange={(e) => setSearch(e.target.value)} />
-            </div>
-            <div>
-              <label className="label">Scope</label>
-              <select className="select" value={scope} onChange={(e) => setScope(e.target.value as Scope)}>
-                <option value="all">All</option>
-                <option value="compatible">Exposure-compatible</option>
-                <option value="common">Common</option>
-              </select>
-            </div>
-            <div>
-              <label className="label">Sort by</label>
-              <select className="select" value={sortKey}
-                      onChange={(e) => setSortKey(e.target.value as typeof sortKey)}>
-                <option value="total">Total (A1–A3 + A4)</option>
-                <option value="a1a3">A1–A3 (binder)</option>
-                <option value="a4">A4 transport</option>
-                <option value="ef">EF per kg binder</option>
-                <option value="dosage">Dosage (kg/m³)</option>
-                <option value="clinker">Clinker fraction</option>
-                <option value="cement">Cement type</option>
-                <option value="strength">Strength class</option>
-                <option value="reduction">% better vs baseline</option>
-              </select>
-            </div>
-            <div>
-              <label className="label">Direction</label>
-              <select className="select" value={sortDir}
-                      onChange={(e) => setSortDir(e.target.value as typeof sortDir)}>
-                <option value="asc">↑ Asc</option>
-                <option value="desc">↓ Desc</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
         <ResultsTable
           rows={rowsSorted.slice(0, pageSize)}
           pageSize={pageSize}
-          setPageSize={setPageSize}
+          onPageSize={setPageSize}
+          sortKey={sortKey}
+          sortDir={sortDir}
+          onSortChange={(k) => {
+            setSortKey(k)
+            setSortDir(d => (k === sortKey ? (d === 'asc' ? 'desc' : 'asc') : 'asc'))
+          }}
+          search={search}
+          onSearch={setSearch}
+          scope={scope}
+          onScope={setScope}
+          onExport={() => {
+            const header = ['Cement','Strength','Clinker(%)','EF...A1-A3(kg/m3)','A4(kg)','Total(kg)','DeltaBaseline(%)'].join(',')
+            const lines = rowsSorted.map(r => [
+              r.cement.cement_type, r.cement.strength_class, Math.round(r.cement.clinker_fraction * 100),
+              r.cement.co2e_per_kg_binder_A1A3.toFixed(3), Math.round(r.dosageUsed),
+              Math.round(r.co2ePerM3_A1A3), Math.round(r.a4Transport), Math.round(r.totalElement),
+              r.gwpReductionPct.toFixed(0)
+            ].join(','))
+            const csv = [header, ...lines].join('\n')
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+            const url = URL.createObjectURL(blob); const a = document.createElement('a')
+            a.href = url; a.download = 'cement-comparison.csv'; a.click(); URL.revokeObjectURL(url)
+          }}
+          onRowClick={setSelectedId}
           selectedId={selectedId}
-          setSelectedId={setSelectedId}
-          inputs={inputs}
-          setInputs={setInputs}
-          onPerCementDosageChange={handlePerCementDosageChange}
           bestId={rowsSorted[0]?.cement.id}
           baselineId={baseline?.id}
+          dosageMode={inputs.dosageMode}
+          perCementDosage={inputs.perCementDosage}
+          onPerCementDosageChange={handlePerCementDosageChange}
         />
+
+        {!hasRows && (
+          <div className="card" style={{ color: '#475569', fontSize: 14, padding: 12 }}>
+            No rows to display. Check your filters or data file.
+          </div>
+        )}
 
         {hasRows && (
           <BarChart
