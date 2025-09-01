@@ -2,9 +2,12 @@
 import { Cement, InputsState, ResultRow, ExposureClass } from './types'
 import { tagsForCement } from './tags'
 
+/** Format numbers with thousand separators */
 export function formatNumber(n: number): string {
   try {
-    return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(n)
+    return new Intl.NumberFormat(undefined, {
+      maximumFractionDigits: 0,
+    }).format(n)
   } catch {
     return Math.round(n).toString()
   }
@@ -76,10 +79,11 @@ export function computeRows(
 
     const exposureCompatible = compatibleWithExposure(c, inputs.exposureClass)
 
-    // ✅ Use consistent, human-readable tags so filters work
+    // Use consistent, human-readable tags
     const tags = tagsForCement(c)
 
-    const gwpReductionPct = ((baselineEF - c.co2e_per_kg_binder_A1A3) / baselineEF) * 100
+    const gwpReductionPct =
+      ((baselineEF - c.co2e_per_kg_binder_A1A3) / baselineEF) * 100
 
     return {
       cement: c,
