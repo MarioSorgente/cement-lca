@@ -8,7 +8,11 @@ import BarChart from '../components/BarChart'
 import CompareTray from '../components/CompareTray'
 import ComparePanel from '../components/ComparePanel'
 
-import { cements as ALL_CEMENTS } from '../lib/data'
+// pages/index.tsx (top)
+import type { Cement } from '../lib/types'
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const ALL_CEMENTS = require('../public/data/cements.json') as Cement[]
+
 import {
   type InputsState,
   type ResultRow,
