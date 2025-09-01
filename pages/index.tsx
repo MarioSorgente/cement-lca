@@ -1,178 +1,312 @@
 // pages/index.tsx
-import { useEffect, useMemo, useState } from 'react'
-import Head from 'next/head'
+import React, { useMemo, useState } from 'react'
+import type { NextPage } from 'next'
+
 import Inputs from '../components/Inputs'
 import ResultsTable from '../components/ResultsTable'
 import BarChart from '../components/BarChart'
-import { computeRows, opcWorstBaseline } from '../lib/calc'
-import { Cement, InputsState, ResultRow } from '../lib/types'
+import CompareTray from '../components/CompareTray'
+import ComparePanel from '../components/ComparePanel'
 
+import { cements as ALL_CEMENTS } from '../lib/data'
+import {
+  type InputsState,
+  type ResultRow,
+  type ExposureClass,
+  type StrengthClass,
+} from '../lib/types'
+import {
+  computeRows,           // produces ResultRow[] from cements + inputs (+ optional baseline EF)
+  opcWorstBaseline,      // finds the worst OPC cement row
+  formatNumber,
+  exportRowsAsCsv,       // helper to export CSV (if you have it; otherwise see fallback below)
+} from '../lib/calc'
+
+// ---- UI enums / helper types (match your existing types) ----
+type SortKey =
+  | 'cement' | 'strength' | 'clinker' | 'ef' | 'dosage' | 'a1a3' | 'a4' | 'total' | 'reduction'
+type SortDir = 'asc' | 'desc'
 type Scope = 'all' | 'compatible' | 'common'
 
-export default function Home() {
-  const [cements, setCements] = useState<Cement[]>([])
-  const [loadError, setLoadError] = useState<string | null>(null)
+// ---- Default inputs (adjust if yours differ) ----
+const DEFAULT_INPUTS: InputsState = {
+  strengthClass: 'C25/30' as StrengthClass,
+  exposureClass: 'XC2' as ExposureClass,
+  volumeM3: 100,
+  distanceKm: 0,
+  includeA4: true,
+  dosageMode: 'global',
+  globalDosage: 300,
+}
 
-  const [inputs, setInputs] = useState<InputsState>({
-    concreteStrength: 'C25/30',
-    exposureClass: 'XC2',
-    volumeM3: 100,
-    distanceKm: 0,
-    includeA4: true,
-    dosageMode: 'global',
-    globalDosage: 320,
-    perCementDosage: {},
-    filters: { OPC: true, Slag: true, FlyAsh: true, Pozzolana: true, Limestone: true, CalcinedClay: true, Composite: true },
+// ---- Sorting helpers ----
+function sortRows(rows: ResultRow[], key: SortKey, dir: SortDir): ResultRow[] {
+  const mul = dir === 'asc' ? 1 : -1
+  return [...rows].sort((a, b) => {
+    const av = val(a, key)
+    const bv = val(b, key)
+    if (typeof av === 'string' && typeof bv === 'string') return av.localeCompare(bv) * mul
+    return ((av as number) - (bv as number)) * mul
   })
 
-  const [search, setSearch] = useState('')
-  const [pageSize, setPageSize] = useState(50)
-  // Local union for sort key (we'll cast at the prop boundary for compatibility)
-  const [sortKey, setSortKey] = useState<'cement'|'strength'|'clinker'|'ef'|'dosage'|'a1a3'|'a4'|'total'|'reduction'>('total')
-  const [sortDir, setSortDir] = useState<'asc'|'desc'>('asc')
+  function val(r: ResultRow, k: SortKey) {
+    switch (k) {
+      case 'cement':    return r.cement.cement_type
+      case 'strength':  return r.cement.strength_class
+      case 'clinker':   return r.cement.clinker_fraction
+      case 'ef':        return r.cement.co2e_per_kg_binder_A1A3
+      case 'dosage':    return r.dosageUsed
+      case 'a1a3':      return r.co2ePerM3_A1A3
+      case 'a4':        return r.a4Transport
+      case 'total':     return r.totalElement
+      case 'reduction': return r.gwpReductionPct
+    }
+  }
+}
+
+// ---- CSV fallback (if your calc.ts doesn’t export exportRowsAsCsv) ----
+function fallbackExportCsv(rows: ResultRow[]) {
+  const headers = [
+    'Cement',
+    'Strength',
+    'Clinker%',
+    'EF (kgCO2/kg)',
+    'Dosage (kg/m3)',
+    'A1-A3 (kg/m3)',
+    'A4 (kg)',
+    'Total element (kg)',
+    'Δ vs baseline (%)',
+  ]
+  const lines = rows.map(r => [
+    r.cement.cement_type,
+    r.cement.strength_class,
+    Math.round(r.cement.clinker_fraction * 100),
+    r.cement.co2e_per_kg_binder_A1A3.toFixed(3),
+    r.dosageUsed,
+    r.co2ePerM3_A1A3,
+    r.a4Transport,
+    r.totalElement,
+    Math.round(r.gwpReductionPct),
+  ])
+  const csv = [headers.join(','), ...lines.map(arr => arr.join(','))].join('\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'cement-results.csv'
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+// ======================================================================
+// Page
+// ======================================================================
+const Home: NextPage = () => {
+  // ----- Inputs block -----
+  const [inputs, setInputs] = useState<InputsState>(DEFAULT_INPUTS)
+
+  // Per-cement dosage map used when dosageMode === 'perCement'
+  const [perCementDosage, setPerCementDosage] = useState<Record<string, number>>({})
+
+  const handlePerCementDosageChange = (cementId: string, val: number) => {
+    setPerCementDosage(prev => ({ ...prev, [cementId]: val }))
+  }
+
+  // ----- Table controls -----
+  const [pageSize, setPageSize] = useState<number>(50)
+  const [sortKey, setSortKey] = useState<SortKey>('total')
+  const [sortDir, setSortDir] = useState<SortDir>('asc')
+  const [search, setSearch] = useState<string>('')
   const [scope, setScope] = useState<Scope>('all')
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch('/data/cements.json')
-        if (!res.ok) throw new Error(`Failed to fetch cements.json (${res.status})`)
-        const arr: Cement[] = await res.json()
-        setCements(arr)
-      } catch (e: any) {
-        setLoadError(e?.message || 'Failed to load cement data')
-      }
-    }
-    load()
-  }, [])
+  // ----- Core rows compute -----
+  const rowsRaw: ResultRow[] = useMemo(() => {
+    // NOTE: computeRows should already account for dosageMode & perCementDosage internally,
+    //       or at least return dosageUsed from global/per-cement logic.
+    // If your computeRows signature differs, adapt here accordingly.
+    return computeRows(ALL_CEMENTS, inputs, /* baselineEFNullable */ null, perCementDosage)
+  }, [inputs, perCementDosage])
 
-  const baseline = useMemo(() => opcWorstBaseline(cements), [cements])
+  // Baseline (worst OPC) info (for display hints and bar colors)
+  const baseline = useMemo(() => opcWorstBaseline(rowsRaw), [rowsRaw])
 
-  const rowsAll = useMemo<ResultRow[]>(() => {
-    return computeRows(cements, inputs, baseline?.ef ?? null)
-  }, [cements, inputs, baseline?.ef])
-
-  const rowsScoped = useMemo(() => {
-    if (scope === 'compatible') return rowsAll.filter(r => r.exposureCompatible)
-    if (scope === 'common')     return rowsAll.filter(r => r.cement.is_common)
-    return rowsAll
-  }, [rowsAll, scope])
-
+  // ----- Scope & search filters -----
   const rowsFiltered = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    const tagOn = inputs.filters
-    return rowsScoped.filter(r => {
-      // tag filters
-      const tagOk = r.tags.some(t => tagOn[t as keyof InputsState['filters']])
-      if (!tagOk) return false
-      if (!q) return true
-      const c = r.cement
-      const haystack = [
-        c.id, c.cement_type, c.standard, c.strength_class, c.early_strength,
-        ...(c.applications || []), c.notes || ''
-      ].join(' ').toLowerCase()
-      return haystack.includes(q)
-    })
-  }, [rowsScoped, search, inputs.filters])
-
-  const rowsSorted = useMemo(() => {
-    const arr = [...rowsFiltered]
-    const dir = sortDir === 'asc' ? 1 : -1
-    arr.sort((a, b) => {
-      switch (sortKey) {
-        case 'cement':   return a.cement.cement_type.localeCompare(b.cement.cement_type) * dir
-        case 'strength': return a.cement.strength_class.localeCompare(b.cement.strength_class) * dir
-        case 'clinker':  return (a.cement.clinker_fraction - b.cement.clinker_fraction) * dir
-        case 'ef':       return (a.cement.co2e_per_kg_binder_A1A3 - b.cement.co2e_per_kg_binder_A1A3) * dir
-        case 'dosage':   return (a.dosageUsed - b.dosageUsed) * dir
-        case 'a1a3':     return (a.co2ePerM3_A1A3 - b.co2ePerM3_A1A3) * dir
-        case 'a4':       return (a.a4Transport - b.a4Transport) * dir
-        case 'total':    return (a.totalElement - b.totalElement) * dir
-        case 'reduction':return (a.gwpReductionPct - b.gwpReductionPct) * dir
-        default:         return 0
-      }
-    })
+    let arr = rowsRaw
+    if (scope === 'compatible') {
+      arr = arr.filter(r => r.exposureCompatible)
+    } else if (scope === 'common') {
+      arr = arr.filter(r => r.isCommon)
+    }
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      arr = arr.filter(r =>
+        r.cement.cement_type.toLowerCase().includes(q) ||
+        (r.cement.notes?.toLowerCase()?.includes(q) ?? false) ||
+        (r.cement.scms?.some(s => s.type.toLowerCase().includes(q)) ?? false)
+      )
+    }
     return arr
-  }, [rowsFiltered, sortKey, sortDir])
+  }, [rowsRaw, scope, search])
 
-  const hasRows = rowsSorted.length > 0
+  // ----- Sort + paginate -----
+  const rowsSorted = useMemo(
+    () => sortRows(rowsFiltered, sortKey, sortDir),
+    [rowsFiltered, sortKey, sortDir]
+  )
 
-  // editor: update per-cement dosage
-  const handlePerCementDosageChange = (cementId: string, val: number) => {
-    setInputs(prev => ({
-      ...prev,
-      perCementDosage: { ...(prev.perCementDosage || {}), [cementId]: val }
-    }))
+  // ----- Export -----
+  const exportCsv = () => {
+    try {
+      if (typeof exportRowsAsCsv === 'function') {
+        exportRowsAsCsv(rowsSorted)
+      } else {
+        fallbackExportCsv(rowsSorted)
+      }
+    } catch {
+      fallbackExportCsv(rowsSorted)
+    }
   }
 
+  // ====================================================================
+  // (A) Compare state + helpers (block A)
+  // ====================================================================
+  const [comparedIds, setComparedIds] = useState<string[]>([])
+  const [cmpOpen, setCmpOpen] = useState(false)
+
+  // Map rows by id for fast access
+  const rowsById = useMemo(() => {
+    const m: Record<string, ResultRow> = {}
+    rowsSorted.forEach(r => { m[r.cement.id] = r })
+    return m
+  }, [rowsSorted])
+
+  // Items shown in the tray chips
+  const comparedItems = useMemo(
+    () => comparedIds
+      .map(id => rowsById[id])
+      .filter(Boolean)
+      .map(r => ({ id: r!.cement.id, label: r!.cement.cement_type })),
+    [comparedIds, rowsById]
+  )
+
+  function toggleCompare(id: string) {
+    setComparedIds(prev => {
+      if (prev.includes(id)) return prev.filter(x => x !== id)
+      if (prev.length >= 3) return prev // cap at 3
+      return [...prev, id]
+    })
+  }
+  function removeFromCompare(id: string) {
+    setComparedIds(prev => prev.filter(x => x !== id))
+  }
+  function replaceInCompare(oldId: string, newId: string) {
+    setComparedIds(prev => {
+      if (prev.includes(newId)) return prev
+      return prev.map(x => (x === oldId ? newId : x))
+    })
+  }
+
+  // ====================================================================
+  // Render
+  // ====================================================================
+  const hasRows = rowsSorted.length > 0
+  const baselineLabel = baseline ? `${baseline.cement.cement_type} (${baseline.cement.strength_class})` : undefined
+
   return (
-    <>
-      <Head><title>Concrete LCA Comparator</title></Head>
-      <div className="container">
-        {loadError && (
-          <div className="card" style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', marginBottom: 16 }}>
-            <div style={{ fontWeight: 700, marginBottom: 6 }}>Failed to load data</div>
-            <div className="small">{loadError}</div>
-          </div>
-        )}
+    <div className="container">
+      <header className="header">
+        <h1 className="h1">AI Cement CO₂ Comparison</h1>
+        <div className="filters">
+          <span className="badge">
+            <input
+              type="checkbox"
+              checked={inputs.includeA4}
+              onChange={e => setInputs(prev => ({ ...prev, includeA4: e.target.checked }))}
+              id="includeA4"
+            />
+            <label htmlFor="includeA4">Include A4 (transport)</label>
+          </span>
+        </div>
+      </header>
 
-        <Inputs state={inputs} setState={setInputs} />
-
-        <ResultsTable
-          rows={rowsSorted.slice(0, pageSize)}
-          pageSize={pageSize}
-          onPageSize={setPageSize}
-          // Cast to satisfy ResultsTable's internal SortKey alias
-          sortKey={sortKey as any}
-          sortDir={sortDir}
-          onSortChange={(k) => {
-            // k is ResultsTable's SortKey; cast back to our local union
-            setSortKey(k as any)
-            setSortDir(d => (k === sortKey ? (d === 'asc' ? 'desc' : 'asc') : 'asc'))
-          }}
-          search={search}
-          onSearch={setSearch}
-          scope={scope}
-          onScope={setScope}
-          onExport={() => {
-            const header = ['Cement','Strength','Clinker(%)','EF...A1-A3(kg/m3)','A4(kg)','Total(kg)','DeltaBaseline(%)'].join(',')
-            const lines = rowsSorted.map(r => [
-              r.cement.cement_type, r.cement.strength_class, Math.round(r.cement.clinker_fraction * 100),
-              r.cement.co2e_per_kg_binder_A1A3.toFixed(3), Math.round(r.dosageUsed),
-              Math.round(r.co2ePerM3_A1A3), Math.round(r.a4Transport), Math.round(r.totalElement),
-              r.gwpReductionPct.toFixed(0)
-            ].join(','))
-            const csv = [header, ...lines].join('\n')
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-            const url = URL.createObjectURL(blob); const a = document.createElement('a')
-            a.href = url; a.download = 'cement-comparison.csv'; a.click(); URL.revokeObjectURL(url)
-          }}
-          onRowClick={setSelectedId}
-          selectedId={selectedId}
-          bestId={rowsSorted[0]?.cement.id}
-          baselineId={baseline?.id}
-          dosageMode={inputs.dosageMode}
-          perCementDosage={inputs.perCementDosage}
+      {/* Inputs */}
+      <div className="card">
+        <Inputs
+          inputs={inputs}
+          onChange={setInputs}
+          perCementDosage={perCementDosage}
           onPerCementDosageChange={handlePerCementDosageChange}
         />
-
-        {!hasRows && (
-          <div className="card" style={{ color: '#475569', fontSize: 14, padding: 12 }}>
-            No rows to display. Check your filters or data file.
-          </div>
-        )}
-
-        {hasRows && (
-          <BarChart
-            rows={rowsSorted}
-            bestId={rowsSorted[0]?.cement.id}
-            opcBaselineId={baseline?.id}
-            baselineEf={baseline?.ef}
-            baselineLabel={baseline?.label}
-          />
-        )}
       </div>
-    </>
+
+      {/* Results and toolbar */}
+      <ResultsTable
+        rows={rowsSorted.slice(0, pageSize)}
+        pageSize={pageSize}
+        onPageSize={setPageSize}
+        sortKey={sortKey}
+        sortDir={sortDir}
+        onSortChange={(k) => {
+          // Toggle direction if same key; otherwise default to asc for numeric downs (total/reduction often asc)
+          setSortDir(prev => (k === sortKey ? (prev === 'asc' ? 'desc' : 'asc') : (k === 'cement' || k === 'strength' ? 'asc' : 'asc')))
+          setSortKey(k)
+        }}
+        search={search}
+        onSearch={setSearch}
+        scope={scope}
+        onScope={setScope}
+        onExport={exportCsv}
+        onRowClick={setSelectedId}
+        selectedId={selectedId}
+        bestId={rowsSorted[0]?.cement.id}
+        baselineId={baseline?.cement.id}
+        dosageMode={inputs.dosageMode}
+        perCementDosage={perCementDosage}
+        onPerCementDosageChange={handlePerCementDosageChange}
+        /* (B) Compare hooks into the table */
+        comparedIds={comparedIds}
+        onToggleCompare={toggleCompare}
+      />
+
+      {hasRows && (
+        <BarChart
+          rows={rowsSorted.slice(0, pageSize)}
+          bestId={rowsSorted[0]?.cement.id}
+          opcBaselineId={baseline?.cement.id}
+          baselineEf={baseline?.cement.co2e_per_kg_binder_A1A3}
+          baselineLabel={baselineLabel}
+        />
+      )}
+
+      {/* (B) Sticky tray at bottom */}
+      <CompareTray
+        items={comparedItems}
+        onOpen={() => setCmpOpen(true)}
+        onRemove={removeFromCompare}
+      />
+
+      {/* (B) Slide-over compare panel */}
+      <ComparePanel
+        open={cmpOpen}
+        onClose={() => setCmpOpen(false)}
+        comparedIds={comparedIds}
+        rowsById={rowsById}
+        baselineId={baseline?.cement.id}
+        dosageMode={inputs.dosageMode}
+        perCementDosage={perCementDosage}
+        onPerCementDosageChange={handlePerCementDosageChange}
+        onRemove={removeFromCompare}
+        catalog={rowsSorted.map(r => ({ id: r.cement.id, label: r.cement.cement_type }))}
+        onReplace={replaceInCompare}
+      />
+
+      <footer className="footer">
+        Data rows: {formatNumber(rowsSorted.length)} • Page size: {pageSize}
+      </footer>
+    </div>
   )
 }
+
+export default Home
