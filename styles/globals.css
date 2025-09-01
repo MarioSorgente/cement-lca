@@ -391,3 +391,44 @@ body { margin: 0; background: var(--bg); color: var(--text); }
 .cmp-bars-a4   { background: #fef3c7; }
 .cmp-bars-legend { margin-top: 6px; display: flex; gap: 6px; }
 
+/* compact compare toggle */
+.cmp-tgl {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+  transition: background .15s ease, border-color .15s ease, transform .05s ease;
+  vertical-align: middle;
+}
+.cmp-tgl:hover { background: #f8fafc; border-color: #cbd5e1; }
+.cmp-tgl:active { transform: scale(0.96); }
+
+/* icon via pseudo-element: plus for idle, check for selected */
+.cmp-tgl::before {
+  content: '+';
+  font-weight: 700;
+  font-size: 13px;
+  color: #111827;
+}
+.cmp-tgl.selected {
+  border-color: #16a34a33;
+  background: #16a34a0d;
+}
+.cmp-tgl.selected::before {
+  content: '✓';
+  font-weight: 700;
+  font-size: 13px;
+  color: #166534;
+}
+
+/* subtle table alignment helpers (optional) */
+.th-center, .td-center { text-align: center; }
+
+
