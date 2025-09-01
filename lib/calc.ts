@@ -40,10 +40,8 @@ function resolveDosage(c: Cement, inputs: InputsState): number {
   if (inputs.dosageMode === 'perCement') {
     const per = inputs.perCementDosage?.[c.id]
     if (typeof per === 'number' && per > 0) return per
-    // Fallback to cement default when per-cement mode but no override
     return c.default_dosage_kg_per_m3
   }
-  // Global mode
   if (typeof inputs.globalDosage === 'number' && inputs.globalDosage > 0) {
     return inputs.globalDosage
   }
@@ -52,7 +50,7 @@ function resolveDosage(c: Cement, inputs: InputsState): number {
 
 /** Compute table/chart rows using current inputs; baselineEF can be null */
 export function computeRows(
-  cements: Cement[],                 // ✅ fixed: this is an array
+  cements: Cement[],
   inputs: InputsState,
   baselineEFNullable: number | null
 ): ResultRow[] {
@@ -76,9 +74,7 @@ export function computeRows(
     const totalElement = co2ePerM3_A1A3 * inputs.volumeM3 + a4Transport
 
     const exposureCompatible = compatibleWithExposure(c, inputs.exposureClass)
-
     const gwpReductionPct = ((baselineEF - c.co2e_per_kg_binder_A1A3) / baselineEF) * 100
-
     const tags = isOPC(c) ? ['OPC'] : (c.scms?.map(s => s.type) ?? [])
 
     return {
