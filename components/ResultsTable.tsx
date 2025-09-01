@@ -3,6 +3,7 @@ import React, { useMemo } from 'react'
 import { InputsState, ResultRow } from '../lib/types'
 import { formatNumber } from '../lib/calc'
 import Tooltip from './Tooltip'
+import CompareToggle from './CompareToggle'
 
 type SortKey =
   | 'cement' | 'strength' | 'clinker' | 'ef' | 'dosage' | 'a1a3' | 'a4' | 'total' | 'reduction'
@@ -35,40 +36,18 @@ type Props = {
   perCementDosage?: Record<string, number>
   onPerCementDosageChange?: (cementId: string, val: number) => void
 
-  /* NEW: compare */
+  /* compare */
   comparedIds?: string[]
   onToggleCompare?: (cementId: string) => void
 }
 
-const SCM_MEANINGS: Record<string, string> = {
-  OPC: 'Ordinary Portland cement (no SCMs).',
-  S:   'GGBS / Slag: improves chloride resistance & lowers CO₂.',
-  V:   'Fly ash: moderates heat; slower early strength; CO₂ cut.',
-  P:   'Natural pozzolana: long-term strength; CO₂ cut.',
-  LL:  'High-purity limestone: workability & modest CO₂ cut.',
-  CC:  'Calcined clay: strong CO₂ cut when blended with limestone.',
-}
-
 function Th({
-  k, label, sortKey, sortDir, onSortChange, help,
-}: {
-  k: SortKey
-  label: string
-  sortKey: SortKey
-  sortDir: 'asc' | 'desc'
-  onSortChange: (k: SortKey) => void
-  help?: string
-}) {
-  const active = sortKey === k
+  onClick, active, dir, children, help,
+}: { onClick?: () => void; active?: boolean; dir?: 'asc'|'desc'; children: React.ReactNode; help?: string }) {
   return (
-    <th
-      className="th-sort"
-      onClick={() => onSortChange(k)}
-      style={{ whiteSpace: 'nowrap', cursor: 'pointer' }}
-    >
-      <span className="th-label">{label}</span>
-      {help && <Tooltip text={help} portal />}
-      <span className="sort-caret">{active ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</span>
+    <th onClick={onClick} title={help} style={{ cursor: onClick ? 'pointer' : 'default', whiteSpace:'nowrap' }}>
+      {children}{' '}
+      {active ? (dir === 'asc' ? '▲' : '▼') : null}
     </th>
   )
 }
@@ -78,31 +57,23 @@ export default function ResultsTable({
   sortKey, sortDir, onSortChange,
   search, onSearch,
   scope, onScope,
-  onExport, onRowClick, selectedId,
+  onExport,
+  onRowClick, selectedId,
   bestId, baselineId,
   dosageMode, perCementDosage, onPerCementDosageChange,
-  comparedIds = [],
-  onToggleCompare,
+  comparedIds, onToggleCompare,
 }: Props) {
-
-  const worstNonBaselineId = useMemo(() => {
-    const pool = rows.filter(r => r.cement.id !== baselineId)
-    if (!pool.length) return undefined
-    const worst = pool.reduce((m, r) => (r.gwpReductionPct < m.gwpReductionPct ? r : m), pool[0])
-    return worst.cement.id
-  }, [rows, baselineId])
+  const pageRows = useMemo(() => rows.slice(0, Math.max(1, pageSize)), [rows, pageSize])
 
   const headerHelp = {
     clinker:   'Clinker content by fraction; lower is typically better for GWP.',
-    ef:        'Embodied carbon per kg of binder for A1–A3.',
+    ef:        'Embodied carbon per kg of binder (A1–A3).',
     dosage:    'Binder dosage in kg per m³ of concrete.',
     a1a3:      'A1–A3 contribution per m³ (dosage × EF).',
     a4:        'Transport stage A4 for the whole element (distance × transport EF × volume).',
     total:     'A1–A3 per element + optional A4 transport.',
-    reduction: 'Percent improvement vs baseline EF (worst OPC by default).',
-  }
-
-  const pageRows = useMemo(() => rows.slice(0, pageSize), [rows, pageSize])
+    reduction: 'Reduction vs OPC baseline EF (worst OPC).',
+  } as const
 
   return (
     <>
@@ -123,137 +94,91 @@ export default function ResultsTable({
           <select className="select" value={pageSize} onChange={(e) => onPageSize(Number(e.target.value))}>
             {[25, 50, 100, 250].map(n => <option key={n} value={n}>{n}/page</option>)}
           </select>
-          <button className="btn" onClick={onExport}>Export CSV</button>
-        </div>
-        <div className="view-banner">
-          Showing {formatNumber(pageRows.length)} of {formatNumber(rows.length)} results
+          <button className="button" onClick={onExport}>Export CSV</button>
         </div>
       </div>
 
       {/* Table */}
-      <div className="table-scroll">
+      <div className="card">
         <table className="table">
           <thead>
             <tr>
-              <Th k="cement"    label="Cement"                 sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} />
-              <Th k="clinker"   label="Clinker"                sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} help={headerHelp.clinker} />
-              <Th k="ef"        label="EF (kgCO₂/kg)"          sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} help={headerHelp.ef} />
-              <Th k="dosage"    label="Dosage (kg/m³)"         sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} help={headerHelp.dosage} />
-              <Th k="a1a3"      label="CO₂e A1–A3 (kg/m³)"     sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} help={headerHelp.a1a3} />
-              <Th k="a4"        label="A4 (kg)"                sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} help={headerHelp.a4} />
-              <Th k="total"     label="Total CO₂ element (kg)" sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} help={headerHelp.total} />
-              <Th k="reduction" label="Δ vs baseline"          sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} help={headerHelp.reduction} />
+              <th className="th-center" style={{ width: 40 }} aria-label="Compare column" />
+              <Th onClick={() => onSortChange('cement')} active={sortKey==='cement'} dir={sortDir}>Cement</Th>
+              <Th onClick={() => onSortChange('clinker')} active={sortKey==='clinker'} dir={sortDir} help={headerHelp.clinker}>Clinker</Th>
+              <Th onClick={() => onSortChange('ef')} active={sortKey==='ef'} dir={sortDir} help={headerHelp.ef}>EF (kg CO₂/kg)</Th>
+              <Th onClick={() => onSortChange('dosage')} active={sortKey==='dosage'} dir={sortDir} help={headerHelp.dosage}>Dosage</Th>
+              <Th onClick={() => onSortChange('a1a3')} active={sortKey==='a1a3'} dir={sortDir} help={headerHelp.a1a3}>A1–A3</Th>
+              <Th onClick={() => onSortChange('a4')} active={sortKey==='a4'} dir={sortDir} help={headerHelp.a4}>A4</Th>
+              <Th onClick={() => onSortChange('total')} active={sortKey==='total'} dir={sortDir} help={headerHelp.total}>Total</Th>
+              <Th onClick={() => onSortChange('reduction')} active={sortKey==='reduction'} dir={sortDir} help={headerHelp.reduction}>Δ vs baseline</Th>
             </tr>
           </thead>
-
           <tbody>
             {pageRows.map(r => {
-              const isSel   = selectedId === r.cement.id
-              const isBest  = r.cement.id === bestId
-              const isBase  = r.cement.id === baselineId
-              const isWorst = r.cement.id === worstNonBaselineId
-              const dim     = !r.exposureCompatible
+              const id = r.cement.id
+              const inCompare = (comparedIds ?? []).includes(id)
+              const isBest = bestId === id
+              const isBaseline = baselineId === id
 
-              let rowStyle: React.CSSProperties = {}
-              if (isBase)        rowStyle = { boxShadow: 'inset 0 0 0 9999px rgba(239,68,68,0.10)', borderColor: '#fecaca' }
-              else if (isWorst)  rowStyle = { boxShadow: 'inset 0 0 0 9999px rgba(245,158,11,0.10)', borderColor: '#f59e0b' }
-              else if (isBest)   rowStyle = { boxShadow: 'inset 0 0 0 9999px rgba(16,185,129,0.10)', borderColor: '#a7f3d0' }
-
-              const leftStripe = isBest ? '#10b981' : (isBase ? '#ef4444' : (isWorst ? '#f59e0b' : '#e5e7eb'))
-              const trClass = ['tr-elevated', isSel ? 'tr-selected' : '', dim ? 'row-dim' : ''].join(' ').trim()
-
-              const scmChips = (r.cement.scms?.length ? r.cement.scms.map(s => s.type) : ['OPC'])
-
-              const pct = r.gwpReductionPct
-              let pill
-              if (isBase) {
-                pill = <span className="pill pill-red">Baseline</span>
-              } else if (pct <= 0) {
-                pill = <span className="pill pill-red">↑ {Math.abs(Math.round(pct))}%</span>
-              } else if (pct <= 10) {
-                pill = <span className="pill pill-amber">↓ {Math.round(pct)}%</span>
-              } else if (pct <= 20) {
-                pill = <span className="pill pill-green">↓ {Math.round(pct)}%</span>
-              } else {
-                pill = <span className="pill pill-deepgreen">↓ {Math.round(pct)}%</span>
-              }
-
-              const dosageEditable = dosageMode === 'perCement' && !!onPerCementDosageChange
-              const dosageValue = dosageEditable
-                ? (perCementDosage?.[r.cement.id] ?? r.dosageUsed)
-                : r.dosageUsed
-
-              const inCompare = comparedIds?.includes(r.cement.id)
+              const rowStyle: React.CSSProperties = isBest
+                ? { background:'#f0fdf4' }
+                : isBaseline
+                ? { background:'#fef2f2' }
+                : {}
 
               return (
                 <tr
-                  key={r.cement.id}
-                  className={trClass}
-                  onClick={() => onRowClick?.(r.cement.id)}
-                  style={{ ...rowStyle, cursor: onRowClick ? 'pointer' : 'default', borderLeft: `4px solid ${leftStripe}` }}
+                  key={id}
+                  style={rowStyle}
+                  className={onRowClick ? 'row-click' : undefined}
+                  onClick={onRowClick ? () => onRowClick(id) : undefined}
                 >
-                  <td className="cell-title">
-                    <div className="title" style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8 }}>
-                      <span>{r.cement.cement_type}</span>
-                      {onToggleCompare && (
-                        <button
-                          className="btn"
-                          style={{ padding:'4px 8px', fontSize:12 }}
-                          onClick={(e)=>{ e.stopPropagation(); onToggleCompare(r.cement.id) }}
-                          title={inCompare ? 'Remove from compare' : 'Add to compare'}
-                        >
-                          {inCompare ? '✓ In compare' : '+ Compare'}
-                        </button>
-                      )}
-                    </div>
-
-                    {scmChips.length > 0 && (
-                      <div style={{ marginTop: 6 }}>
-                        {scmChips.map(tag => (
-                          <span key={tag} className="tag tooltip-wrapper" style={{ marginRight: 6, marginBottom: 4 }}>
-                            {tag}
-                            <span className="tooltip-box tooltip-right">
-                              {SCM_MEANINGS[tag] ?? tag}
-                            </span>
-                          </span>
-                        ))}
-                      </div>
-                    )}
+                  <td className="td-center" onClick={(e) => e.stopPropagation()}>
+                    <CompareToggle
+                      selected={inCompare}
+                      onToggle={() => onToggleCompare?.(id)}
+                      title={inCompare ? 'In compare' : 'Add to compare'}
+                    />
                   </td>
 
-                  <td className="num-strong">{Math.round(r.cement.clinker_fraction * 100)}%</td>
-                  <td className="num-strong">{r.cement.co2e_per_kg_binder_A1A3.toFixed(3)}</td>
                   <td>
-                    {dosageEditable ? (
-                      <input
-                        className="input sm"
-                        type="number"
-                        min={0}
-                        value={String(dosageValue)}
-                        onClick={(e) => e.stopPropagation()}
-                        onChange={(e) =>
-                          onPerCementDosageChange!(r.cement.id, Number(e.target.value) || 0)
-                        }
-                        title="Edit dosage for this cement (kg/m³)"
-                        onWheel={(e)=> (e.currentTarget as HTMLInputElement).blur()}
-                      />
-                    ) : (
-                      <span className="num-strong">{formatNumber(dosageValue)}</span>
-                    )}
+                    <div style={{ fontWeight: 600 }}>{r.cement.cement_type}</div>
+                    <div className="small" style={{ display:'flex', gap:6, marginTop: 4 }}>
+                      {(r.tags ?? []).map(t => <span key={t} className="chip">{t}</span>)}
+                    </div>
                   </td>
-                  <td className="num-strong">{formatNumber(r.co2ePerM3_A1A3)}</td>
-                  <td className="num-strong">{formatNumber(r.a4Transport)}</td>
-                  <td className="num-strong">{formatNumber(r.totalElement)}</td>
-                  <td>{pill}</td>
+
+                  <td style={{ whiteSpace:'nowrap' }}>{Math.round(r.cement.clinker_fraction * 100)}%</td>
+                  <td>{Number(r.cement.co2e_per_kg_binder_A1A3).toFixed(3)}</td>
+                  <td style={{ whiteSpace:'nowrap' }}>
+                    {typeof r.dosageUsed === 'number' ? Math.round(r.dosageUsed) : r.dosageUsed}
+                  </td>
+                  <td>{formatNumber(Math.round(r.co2ePerM3_A1A3))}</td>
+                  <td>{formatNumber(Math.round(r.a4Transport))}</td>
+                  <td>{formatNumber(Math.round(r.totalElement))}</td>
+
+                  <td>
+                    {r.gwpReductionPct === 0
+                      ? <span className="chip chip-red">0%</span>
+                      : r.gwpReductionPct > 20
+                      ? <span className="chip chip-deepgreen">↓ {Math.round(r.gwpReductionPct)}%</span>
+                      : r.gwpReductionPct > 10
+                      ? <span className="chip chip-green">↓ {Math.round(r.gwpReductionPct)}%</span>
+                      : r.gwpReductionPct > 0
+                      ? <span className="chip chip-yellow">↓ {Math.round(r.gwpReductionPct)}%</span>
+                      : <span className="chip chip-red">↑ {Math.abs(Math.round(r.gwpReductionPct))}%</span>
+                    }
+                  </td>
                 </tr>
               )
             })}
           </tbody>
         </table>
 
-        <div className="table-footer">
+        <div className="table-footer" style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
           <div className="footer">Showing {formatNumber(pageRows.length)} of {formatNumber(rows.length)} results</div>
-          <div className="pager">
+          <div className="pager" style={{ display:'flex', gap:8 }}>
             <button className="button" onClick={() => onPageSize(Math.max(25, pageSize - 25))} disabled={pageSize <= 25}>–25</button>
             <button className="button" onClick={() => onPageSize(pageSize + 25)}>+25</button>
           </div>
