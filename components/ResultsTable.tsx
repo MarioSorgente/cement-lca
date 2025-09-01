@@ -40,25 +40,33 @@ type Props = {
   onToggleCompare?: (cementId: string) => void
 }
 
-function Th({
-  k, label, sortKey, sortDir, onSortChange, help,
+/** Stacked header: label on top, unit below (saves width). Tooltip uses portal to avoid clipping. */
+function ThStack({
+  k, label, unit, sortKey, sortDir, onSortChange, help, align = 'left',
 }: {
   k: SortKey
   label: string
+  unit?: string
   sortKey: SortKey
   sortDir: 'asc' | 'desc'
   onSortChange: (k: SortKey) => void
   help?: string
+  align?: 'left' | 'right' | 'center'
 }) {
   const active = sortKey === k
   return (
     <th
       onClick={() => onSortChange(k)}
-      style={{ whiteSpace:'nowrap', cursor:'pointer' }}
+      style={{ cursor: 'pointer', whiteSpace: 'nowrap', textAlign: align }}
     >
-      <span className="th-label">{label}</span>{' '}
-      {help && <Tooltip text={help} portal />}
-      {active && <span className="sort-caret">{sortDir === 'asc' ? ' ▲' : ' ▼'}</span>}
+      <div className="th-stack">
+        <div className="th-row">
+          <span className="th-label">{label}</span>
+          {help && <Tooltip text={help} portal />}
+          {active && <span className="sort-caret">{sortDir === 'asc' ? ' ▲' : ' ▼'}</span>}
+        </div>
+        {unit && <div className="th-unit small">{unit}</div>}
+      </div>
     </th>
   )
 }
@@ -74,8 +82,6 @@ export default function ResultsTable({
   dosageMode, perCementDosage, onPerCementDosageChange,
   comparedIds, onToggleCompare,
 }: Props) {
-  const pageRows = useMemo(() => rows.slice(0, Math.max(1, pageSize)), [rows, pageSize])
-
   const headerHelp = {
     clinker:   'Clinker fraction; lower tends to reduce GWP.',
     ef:        'Embodied carbon of binder A1–A3 (kg CO₂ per kg).',
@@ -85,6 +91,8 @@ export default function ResultsTable({
     total:     'A1–A3 per element + (optional) A4.',
     reduction: 'Reduction vs worst OPC EF (baseline).',
   } as const
+
+  const pageRows = useMemo(() => rows.slice(0, Math.max(1, pageSize)), [rows, pageSize])
 
   const worstNonBaselineId = useMemo(() => {
     const pool = rows.filter(r => r.cement.id !== baselineId)
@@ -116,115 +124,123 @@ export default function ResultsTable({
         </div>
       </div>
 
-      {/* Table */}
+      {/* Table (wrapped so nothing clips) */}
       <div className="card">
-        <table className="table">
-          <thead>
-            <tr>
-              <th className="th-center" style={{ width: 40 }} aria-label="Compare column" />
-              <Th k="cement"    label="Cement"                 sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} />
-              <Th k="clinker"   label="Clinker"                sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} help={headerHelp.clinker} />
-              <Th k="ef"        label="EF (kg CO₂/kg)"         sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} help={headerHelp.ef} />
-              <Th k="dosage"    label="Dosage (kg/m³)"         sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} help={headerHelp.dosage} />
-              <Th k="a1a3"      label="CO₂e A1–A3 (kg/m³)"     sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} help={headerHelp.a1a3} />
-              <Th k="a4"        label="A4 (kg)"                sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} help={headerHelp.a4} />
-              <Th k="total"     label="Total CO₂ element (kg)" sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} help={headerHelp.total} />
-              <Th k="reduction" label="Δ vs baseline"          sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} help={headerHelp.reduction} />
-            </tr>
-          </thead>
+        <div className="table-scroll">
+          <table className="table">
+            <thead>
+              <tr>
+                <th className="th-center" style={{ width: 40 }} aria-label="Compare column" />
+                <ThStack k="cement"  label="Cement"                 sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} />
+                <ThStack k="clinker" label="Clinker"                unit="%"          sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} help={headerHelp.clinker} align="right" />
+                <ThStack k="ef"      label="EF"                     unit="kg CO₂/kg"  sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} help={headerHelp.ef} align="right" />
+                <ThStack k="dosage"  label="Dosage"                 unit="kg/m³"      sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} help={headerHelp.dosage} align="right" />
+                <ThStack k="a1a3"    label="CO₂e A1–A3"            unit="kg/m³"      sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} help={headerHelp.a1a3} align="right" />
+                <ThStack k="a4"      label="A4"                     unit="kg"         sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} help={headerHelp.a4} align="right" />
+                <ThStack k="total"   label="Total CO₂ element"      unit="kg"         sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} help={headerHelp.total} align="right" />
+                <ThStack k="reduction" label="Δ vs baseline"        unit=""           sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} help={headerHelp.reduction} align="right" />
+              </tr>
+            </thead>
 
-          <tbody>
-            {pageRows.map(r => {
-              const id = r.cement.id
-              const inCompare = (comparedIds ?? []).includes(id)
-              const isBest  = id === bestId
-              const isBase  = id === baselineId
-              const isWorst = id === worstNonBaselineId
-              const dim     = !r.exposureCompatible
+            <tbody>
+              {pageRows.map(r => {
+                const id = r.cement.id
+                const inCompare = (comparedIds ?? []).includes(id)
+                const isBest  = id === bestId
+                const isBase  = id === baselineId
+                const isWorst = id === worstNonBaselineId
+                const dim     = !r.exposureCompatible
 
-              let rowStyle: React.CSSProperties = {}
-              if (isBase)        rowStyle = { boxShadow: 'inset 0 0 0 9999px rgba(239,68,68,0.08)', borderColor: '#fecaca' }
-              else if (isWorst)  rowStyle = { boxShadow: 'inset 0 0 0 9999px rgba(245,158,11,0.08)', borderColor: '#f59e0b' }
-              else if (isBest)   rowStyle = { boxShadow: 'inset 0 0 0 9999px rgba(16,185,129,0.08)', borderColor: '#a7f3d0' }
+                // soft row tint; no clipping problems (no oversized shadows)
+                let rowStyle: React.CSSProperties = {}
+                if (isBase)        rowStyle = { background: 'rgba(239,68,68,0.06)' }
+                else if (isWorst)  rowStyle = { background: 'rgba(245,158,11,0.06)' }
+                else if (isBest)   rowStyle = { background: 'rgba(16,185,129,0.06)' }
 
-              const leftStripe = isBest ? '#10b981' : (isBase ? '#ef4444' : (isWorst ? '#f59e0b' : '#e5e7eb'))
+                // left stripe color
+                const leftStripe = isBest ? '#10b981' : (isBase ? '#ef4444' : (isWorst ? '#f59e0b' : '#e5e7eb'))
 
-              const pct = r.gwpReductionPct
-              let pill: JSX.Element
-              if (isBase) {
-                pill = <span className="pill pill-red">Baseline</span>
-              } else if (pct <= 0) {
-                pill = <span className="pill pill-red">↑ {Math.abs(Math.round(pct))}%</span>
-              } else if (pct <= 10) {
-                pill = <span className="pill pill-amber">↓ {Math.round(pct)}%</span>
-              } else if (pct <= 20) {
-                pill = <span className="pill pill-green">↓ {Math.round(pct)}%</span>
-              } else {
-                pill = <span className="pill pill-deepgreen">↓ {Math.round(pct)}%</span>
-              }
+                // pill logic (includes "Baseline")
+                const pct = r.gwpReductionPct
+                let pill: JSX.Element
+                if (isBase) {
+                  pill = <span className="pill pill-red">Baseline</span>
+                } else if (pct <= 0) {
+                  pill = <span className="pill pill-red">↑ {Math.abs(Math.round(pct))}%</span>
+                } else if (pct <= 10) {
+                  pill = <span className="pill pill-amber">↓ {Math.round(pct)}%</span>
+                } else if (pct <= 20) {
+                  pill = <span className="pill pill-green">↓ {Math.round(pct)}%</span>
+                } else {
+                  pill = <span className="pill pill-deepgreen">↓ {Math.round(pct)}%</span>
+                }
 
-              const dosageEditable = dosageMode === 'perCement' && !!onPerCementDosageChange
-              const dosageValue = dosageEditable
-                ? (perCementDosage?.[id] ?? r.dosageUsed)
-                : r.dosageUsed
+                const dosageEditable = dosageMode === 'perCement' && !!onPerCementDosageChange
+                const dosageValue = dosageEditable
+                  ? (perCementDosage?.[id] ?? r.dosageUsed)
+                  : r.dosageUsed
 
-              return (
-                <tr
-                  key={id}
-                  className={['tr-elevated', selectedId === id ? 'tr-selected' : '', dim ? 'row-dim' : ''].join(' ').trim()}
-                  onClick={() => onRowClick?.(id)}
-                  style={{ ...rowStyle, cursor: onRowClick ? 'pointer' : 'default', borderLeft: `4px solid ${leftStripe}` }}
-                >
-                  <td className="td-center" onClick={(e) => e.stopPropagation()}>
-                    <CompareToggle
-                      selected={inCompare}
-                      onToggle={() => onToggleCompare?.(id)}
-                      title={inCompare ? 'In compare' : 'Add to compare'}
-                    />
-                  </td>
-
-                  <td>
-                    <div style={{ fontWeight: 600 }}>{r.cement.cement_type}</div>
-                    {(r.tags?.length ?? 0) > 0 && (
-                      <div className="small" style={{ display:'flex', gap:6, marginTop: 4, flexWrap:'wrap' }}>
-                        {r.tags!.map(t => (
-                          <Tooltip key={t} text={`Tag: ${t}`} portal>
-                            <span className="chip">{t}</span>
-                          </Tooltip>
-                        ))}
-                      </div>
-                    )}
-                  </td>
-
-                  <td className="num-strong" style={{ whiteSpace:'nowrap' }}>{Math.round(r.cement.clinker_fraction * 100)}%</td>
-                  <td className="num-strong">{Number(r.cement.co2e_per_kg_binder_A1A3).toFixed(3)}</td>
-
-                  <td style={{ whiteSpace:'nowrap' }}>
-                    {dosageEditable ? (
-                      <input
-                        className="input sm"
-                        type="number"
-                        min={0}
-                        value={String(dosageValue)}
-                        onClick={(e) => e.stopPropagation()}
-                        onChange={(e) => onPerCementDosageChange!(id, Number(e.target.value) || 0)}
-                        title="Edit dosage for this cement (kg/m³)"
+                return (
+                  <tr
+                    key={id}
+                    className={['tr-elevated', selectedId === id ? 'tr-selected' : '', dim ? 'row-dim' : ''].join(' ').trim()}
+                    onClick={() => onRowClick?.(id)}
+                    style={{ ...rowStyle, cursor: onRowClick ? 'pointer' : 'default', borderLeft: `4px solid ${leftStripe}` }}
+                  >
+                    {/* Compare toggle (tiny) */}
+                    <td className="td-center" onClick={(e) => e.stopPropagation()}>
+                      <CompareToggle
+                        selected={inCompare}
+                        onToggle={() => onToggleCompare?.(id)}
+                        title={inCompare ? 'In compare' : 'Add to compare'}
                       />
-                    ) : (
-                      <span className="num-strong">{formatNumber(dosageValue)}</span>
-                    )}
-                  </td>
+                    </td>
 
-                  <td className="num-strong">{formatNumber(r.co2ePerM3_A1A3)}</td>
-                  <td className="num-strong">{formatNumber(r.a4Transport)}</td>
-                  <td className="num-strong">{formatNumber(r.totalElement)}</td>
+                    {/* Cement info + SCM tags (legacy inline tooltip on each tag) */}
+                    <td>
+                      <div style={{ fontWeight: 600 }}>{r.cement.cement_type}</div>
+                      {(r.tags?.length ?? 0) > 0 && (
+                        <div className="small" style={{ display:'flex', gap:6, marginTop: 4, flexWrap:'wrap' }}>
+                          {r.tags!.map(t => (
+                            <span key={t} className="tag tooltip-wrapper" aria-label={`Tag: ${t}`}>
+                              <span>{t}</span>
+                              <span className="tooltip-box tooltip-right">Tag: {t}</span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </td>
 
-                  <td>{pill}</td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+                    <td className="num-strong" style={{ whiteSpace:'nowrap', textAlign:'right' }}>{Math.round(r.cement.clinker_fraction * 100)}%</td>
+                    <td className="num-strong" style={{ textAlign:'right' }}>{Number(r.cement.co2e_per_kg_binder_A1A3).toFixed(3)}</td>
+
+                    <td style={{ whiteSpace:'nowrap', textAlign:'right' }}>
+                      {dosageEditable ? (
+                        <input
+                          className="input sm"
+                          type="number"
+                          min={0}
+                          value={String(dosageValue)}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => onPerCementDosageChange!(id, Number(e.target.value) || 0)}
+                          title="Edit dosage for this cement (kg/m³)"
+                        />
+                      ) : (
+                        <span className="num-strong">{formatNumber(dosageValue)}</span>
+                      )}
+                    </td>
+
+                    <td className="num-strong" style={{ textAlign:'right' }}>{formatNumber(r.co2ePerM3_A1A3)}</td>
+                    <td className="num-strong" style={{ textAlign:'right' }}>{formatNumber(r.a4Transport)}</td>
+                    <td className="num-strong" style={{ textAlign:'right' }}>{formatNumber(r.totalElement)}</td>
+
+                    <td style={{ textAlign:'right' }}>{pill}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
 
         <div className="table-footer" style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
           <div className="footer">Showing {formatNumber(pageRows.length)} of {formatNumber(rows.length)} results</div>
