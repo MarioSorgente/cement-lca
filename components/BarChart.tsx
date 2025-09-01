@@ -150,6 +150,39 @@ export default function BarChart({
   }
   const hideTip = () => setTip(null)
 
+  // Estimate tooltip width for auto-flip/clamping (keep in sync with CSS max-width)
+  const TOOLTIP_W = 240   // px (safe estimate)
+  const PAD = 8
+
+  // Compute tooltip positioning with auto-flip & clamping
+  const tooltipStyle = (() => {
+    if (!tip) return null
+    const contW = wrapRef.current?.offsetWidth ?? 0
+    const contH = wrapRef.current?.offsetHeight ?? 0
+
+    // Prefer right side of cursor
+    let left = tip.x + 12
+    // Flip left if overflowing right edge
+    if (left + TOOLTIP_W > contW - PAD) {
+      left = Math.max(PAD, tip.x - TOOLTIP_W - 12)
+    }
+    // Gentle clamp inside container
+    left = clamp(left, PAD, Math.max(PAD, contW - TOOLTIP_W - PAD))
+
+    // Vertical: we place tooltip above the cursor (translateY(-100%))
+    // Clamp the anchor so final box stays in view reasonably.
+    let top = tip.y - 12
+    top = clamp(top, 24, contH - 24)
+
+    return {
+      position: 'absolute' as const,
+      left,
+      top,
+      transform: 'translateY(-100%)',
+      pointerEvents: 'none' as const,
+    }
+  })()
+
   return (
     <div className="card">
       <h2 style={{ fontSize: 18, fontWeight: 600, marginTop: 0, marginBottom: 4 }}>
@@ -162,7 +195,7 @@ export default function BarChart({
         role="region"
         aria-label="CO2e bar chart"
         ref={wrapRef}
-        style={{ position: 'relative' }}  // needed to position the tooltip
+        style={{ position: 'relative' }}  // tooltip positioning context
       >
         <svg
           viewBox={`0 0 ${w} ${h}`}
@@ -242,18 +275,9 @@ export default function BarChart({
           </g>
         </svg>
 
-        {/* Custom tooltip */}
-        {tip?.show && (
-          <div
-            className="chart-tip"
-            style={{
-              position: 'absolute',
-              left: tip.x + 12,
-              top: tip.y - 12,
-              transform: 'translateY(-100%)',
-              pointerEvents: 'none',
-            }}
-          >
+        {/* Custom tooltip with auto-flip & clamping */}
+        {tip?.show && tooltipStyle && (
+          <div className="chart-tip" style={tooltipStyle}>
             <div className="chart-tip__title">{tip.name}</div>
             <div className="chart-tip__rows">
               <div className="chart-tip__row">
