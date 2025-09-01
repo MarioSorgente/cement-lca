@@ -45,6 +45,7 @@ const SCM_MEANINGS: Record<string, string> = {
   CC:  'Calcined clay: strong CO₂ cut when blended with limestone.',
 }
 
+/** Header cell with unified tooltip + sorting */
 function Th({
   k, label, sortKey, sortDir, onSortChange, help,
 }: {
@@ -63,7 +64,7 @@ function Th({
       style={{ whiteSpace: 'nowrap', cursor: 'pointer' }}
     >
       <span className="th-label">{label}</span>
-      {help && <Tooltip text={help} />}
+      {help && <Tooltip text={help} portal />} {/* use portal in headers */}
       <span className="sort-caret">{active ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</span>
     </th>
   )
@@ -109,13 +110,23 @@ export default function ResultsTable({
             value={search}
             onChange={(e) => onSearch(e.target.value)}
           />
-          <select className="select" value={scope} onChange={(e) => onScope(e.target.value as Scope)}>
+          <select
+            className="select"
+            value={scope}
+            onChange={(e) => onScope(e.target.value as Scope)}
+          >
             <option value="all">All rows</option>
             <option value="compatible">Exposure-compatible</option>
             <option value="common">Common</option>
           </select>
-          <select className="select" value={pageSize} onChange={(e) => onPageSize(Number(e.target.value))}>
-            {[25, 50, 100, 250].map(n => <option key={n} value={n}>{n}/page</option>)}
+          <select
+            className="select"
+            value={pageSize}
+            onChange={(e) => onPageSize(Number(e.target.value))}
+          >
+            {[25, 50, 100, 250].map(n => (
+              <option key={n} value={n}>{n}/page</option>
+            ))}
           </select>
           <button className="btn" onClick={onExport}>Export CSV</button>
         </div>
@@ -148,6 +159,7 @@ export default function ResultsTable({
               const isWorst = r.cement.id === worstNonBaselineId
               const dim     = !r.exposureCompatible
 
+              // Row tints
               let rowStyle: React.CSSProperties = {}
               if (isBase)        rowStyle = { boxShadow: 'inset 0 0 0 9999px rgba(239,68,68,0.10)', borderColor: '#fecaca' }
               else if (isWorst)  rowStyle = { boxShadow: 'inset 0 0 0 9999px rgba(245,158,11,0.10)', borderColor: '#f59e0b' }
@@ -156,9 +168,10 @@ export default function ResultsTable({
               const leftStripe = isBest ? '#10b981' : (isBase ? '#ef4444' : (isWorst ? '#f59e0b' : '#e5e7eb'))
               const trClass = ['tr-elevated', isSel ? 'tr-selected' : '', dim ? 'row-dim' : ''].join(' ').trim()
 
+              // SCM chips (codes) with tooltip help — keep inline tooltip for simplicity
               const scmChips = (r.cement.scms?.length ? r.cement.scms.map(s => s.type) : ['OPC'])
 
-              // Pill logic
+              // Pill logic per legend
               const pct = r.gwpReductionPct
               let pill
               if (isBase) {
