@@ -27,6 +27,7 @@ export default function Home() {
 
   const [search, setSearch] = useState('')
   const [pageSize, setPageSize] = useState(50)
+  // Local union for sort key (we'll cast at the prop boundary for compatibility)
   const [sortKey, setSortKey] = useState<'cement'|'strength'|'clinker'|'ef'|'dosage'|'a1a3'|'a4'|'total'|'reduction'>('total')
   const [sortDir, setSortDir] = useState<'asc'|'desc'>('asc')
   const [scope, setScope] = useState<Scope>('all')
@@ -122,10 +123,12 @@ export default function Home() {
           rows={rowsSorted.slice(0, pageSize)}
           pageSize={pageSize}
           onPageSize={setPageSize}
-          sortKey={sortKey}
+          // Cast to satisfy ResultsTable's internal SortKey alias
+          sortKey={sortKey as any}
           sortDir={sortDir}
           onSortChange={(k) => {
-            setSortKey(k)
+            // k is ResultsTable's SortKey; cast back to our local union
+            setSortKey(k as any)
             setSortDir(d => (k === sortKey ? (d === 'asc' ? 'desc' : 'asc') : 'asc'))
           }}
           search={search}
