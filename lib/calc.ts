@@ -52,13 +52,13 @@ function resolveDosage(c: Cement, inputs: InputsState): number {
 
 /** Compute table/chart rows using current inputs; baselineEF can be null */
 export function computeRows(
-  cements: Cement,
+  cements: Cement[],                 // ✅ fixed: this is an array
   inputs: InputsState,
   baselineEFNullable: number | null
 ): ResultRow[] {
   if (!cements?.length) return []
   const baselineEF = baselineEFNullable ??
-    (()=>{
+    (() => {
       const base = opcWorstBaseline(cements)
       return base ? base.ef : Math.max(...cements.map(c => c.co2e_per_kg_binder_A1A3))
     })()
