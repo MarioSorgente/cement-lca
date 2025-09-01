@@ -1,6 +1,7 @@
 // components/Inputs.tsx
 import React, { useState } from 'react'
 import { InputsState } from '../lib/types'
+import { getDefaultDosage } from '../lib/dosage'
 import Tooltip from './Tooltip'
 
 type Props = {
@@ -14,122 +15,107 @@ const strengthOptions: NonNullable<InputsState['concreteStrength']>[] = [
   'C20/25','C25/30','C30/37','C35/45','C40/50','C45/55','C50/60'
 ]
 
-const exposureOptions = [
-  'XC1','XC2','XC3','XC4','XS1','XS2','XS3','XD1','XD2','XD3','XF1','XF2','XA2','XA3'
+const exposureOptions: InputsState['exposureClass'][] = [
+  'XC1','XC2','XC3','XC4',
+  'XD1','XD2','XD3',
+  'XS1','XS2','XS3',
+  'XF1','XF2',
+  'XA2','XA3'
 ]
 
 export default function Inputs({ inputs, onChange }: Props) {
-  // local strings to avoid number input “jumpiness” while typing
-  const [volumeStr, setVolumeStr] = useState(String(inputs.volumeM3 ?? 0))
-  const [distanceStr, setDistanceStr] = useState(String(inputs.distanceKm ?? 0))
-  const [dosageStr, setDosageStr] = useState(String(inputs.globalDosage ?? 0))
+  const [volDraft, setVolDraft] = useState(String(inputs.volumeM3))
+  const [distDraft, setDistDraft] = useState(String(inputs.distanceKm))
+  const [dosageDraft, setDosageDraft] = useState(String(inputs.globalDosage))
 
-  const onNumberCommit = (s: string, fallback: number) => {
-    const trimmed = s.trim()
-    if (trimmed === '' || trimmed === '-' || trimmed === '.' || trimmed === '-.') return fallback
-    const n = Number(trimmed)
+  const numberFromDraft = (draft: string, fallback: number) => {
+    const s = draft.trim()
+    if (s === '') return fallback
+    const n = Number(s.replace(',', '.'))
     return Number.isFinite(n) ? n : fallback
   }
 
-  const disabledGlobal = inputs.dosageMode === 'perCement'
+  const perCement = inputs.dosageMode === 'perCement'
 
   return (
-    <div className="grid inputs-grid">
-      {/* Exposure class */}
-      <div>
-        <label className="label">
-          Exposure class
-          <Tooltip text="EN exposure class for durability. Filters compatible cements." />
-        </label>
-        <select
-          className="select"
-          value={inputs.exposureClass}
-          onChange={(e) => onChange({ ...inputs, exposureClass: e.target.value })}
-        >
-          {exposureOptions.map(x => <option key={x} value={x}>{x}</option>)}
-        </select>
-      </div>
+    <div className="card" style={{ marginBottom: 16 }}>
+      <h2 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 10px' }}>Inputs</h2>
 
-      {/* Concrete strength */}
-      <div>
-        <label className="label">
-          Concrete strength
-          <Tooltip text="Target concrete strength class (UI only)." />
-        </label>
-        <select
-          className="select"
-          value={inputs.concreteStrength ?? ''}
-          onChange={(e) => onChange({ ...inputs, concreteStrength: e.target.value, strengthClass: e.target.value })}
-        >
-          {strengthOptions.map(x => <option key={x} value={x}>{x}</option>)}
-        </select>
-      </div>
+      {/* Row 1: Exposure + Volume */}
+      <div className="grid" style={{ gridTemplateColumns:'1fr 1fr', gap: 12, marginBottom: 10 }}>
+        <div>
+          <label className="label">
+            Exposure class
+            <Tooltip text="EN 206 durability class (e.g., XC3). Used to flag compatibility per cement." />
+          </label>
+          <select
+            className="select"
+            value={inputs.exposureClass}
+            onChange={(e) => onChange({ ...inputs, exposureClass: e.target.value })}
+          >
+            {exposureOptions.map(x => <option key={x} value={x}>{x}</option>)}
+          </select>
+        </div>
 
-      {/* Volume */}
-      <div>
-        <label className="label">
-          Volume (m³)
-          <Tooltip text="Total concrete volume for this element." />
-        </label>
-        <input
-          className="input"
-          inputMode="decimal"
-          value={volumeStr}
-          onChange={(e) => setVolumeStr(e.target.value)}
-          onBlur={() => {
-            const n = onNumberCommit(volumeStr, inputs.volumeM3 ?? 0)
-            setVolumeStr(String(n))
-            onChange({ ...inputs, volumeM3: Math.max(0, n) })
-          }}
-          placeholder="e.g. 100"
-        />
-      </div>
-
-      {/* Transport */}
-      <div>
-        <label className="label">
-          Transport distance (km)
-          <Tooltip text="One-way distance for A4 (if included)." />
-        </label>
-        <div className="input-group">
-          <div style={{ display:'grid', gridTemplateColumns:'1fr auto', gap:8 }}>
-            <input
-              className="input"
-              inputMode="decimal"
-              value={distanceStr}
-              onChange={(e) => setDistanceStr(e.target.value)}
-              onBlur={() => {
-                const n = onNumberCommit(distanceStr, inputs.distanceKm ?? 0)
-                setDistanceStr(String(n))
-                onChange({ ...inputs, distanceKm: Math.max(0, n) })
-              }}
-              placeholder="e.g. 0"
-            />
-            <label className="badge" style={{ justifySelf:'end' }}>
-              <input
-                type="checkbox"
-                checked={inputs.includeA4}
-                onChange={(e)=> onChange({ ...inputs, includeA4: e.target.checked })}
-              />
-              Include A4
-            </label>
-          </div>
+        <div>
+          <label className="label">
+            Volume (m³)
+            <Tooltip text="Concrete element volume. Scales total embodied carbon." />
+          </label>
+          <input
+            className="input"
+            type="text"
+            inputMode="decimal"
+            value={volDraft}
+            onChange={(e) => setVolDraft(e.target.value)}
+            onBlur={() => onChange({ ...inputs, volumeM3: numberFromDraft(volDraft, inputs.volumeM3) })}
+          />
         </div>
       </div>
 
-      {/* Dosage block (spans full width on small) */}
-      <div style={{ gridColumn: '1 / -1' }}>
-        <label className="label">
-          Dosage mode
-          <Tooltip text="Choose a single global dosage or override per cement in the table." />
-        </label>
-        <div className="input-group">
-          <div className="radio-row">
+      {/* Row 2: A4 transport + Dosage block */}
+      <div className="grid" style={{ gridTemplateColumns:'1fr 1fr', gap: 12 }}>
+        {/* A4 transport */}
+        <div>
+          <label className="label">
+            Transport (A4)
+            <Tooltip text="If enabled, adds A4 = distance × EF per cement." />
+          </label>
+
+          <div className="grid" style={{ gridTemplateColumns: 'auto 1fr', gap: 8, alignItems:'center' }}>
+            <label className="small" style={{ display:'inline-flex', alignItems:'center', gap: 8 }}>
+              <input
+                type="checkbox"
+                checked={inputs.includeA4}
+                onChange={(e) => onChange({ ...inputs, includeA4: e.target.checked })}
+              />
+              Include A4
+            </label>
+
+            <input
+              className="input"
+              type="text"
+              inputMode="decimal"
+              placeholder="Distance (km)"
+              value={distDraft}
+              onChange={(e) => setDistDraft(e.target.value)}
+              onBlur={() => onChange({ ...inputs, distanceKm: numberFromDraft(distDraft, inputs.distanceKm) })}
+            />
+          </div>
+
+          <p className="small" style={{ marginTop: 6 }}>Enter km to site logistics.</p>
+        </div>
+
+        {/* Dosage block */}
+        <div>
+          <label className="label">Dosage</label>
+
+          {/* Mode radios */}
+          <div className="radio-row" style={{ marginBottom: 8 }}>
             <label>
               <input
                 type="radio"
-                name="dosageMode"
-                value="global"
+                name="dosage-mode"
                 checked={inputs.dosageMode === 'global'}
                 onChange={() => onChange({ ...inputs, dosageMode: 'global' })}
               />{' '}
@@ -138,39 +124,57 @@ export default function Inputs({ inputs, onChange }: Props) {
             <label>
               <input
                 type="radio"
-                name="dosageMode"
-                value="perCement"
+                name="dosage-mode"
                 checked={inputs.dosageMode === 'perCement'}
                 onChange={() => onChange({ ...inputs, dosageMode: 'perCement' })}
               />{' '}
-              Per cement (edit in table)
+              Per cement
             </label>
           </div>
 
-          <div>
-            <label className="label" style={{ marginTop: 6 }}>
-              Global dosage (kg/m³)
-              <Tooltip text="Applied to all rows unless you switch to per-cement mode." />
-            </label>
-            <input
-              className="input"
-              inputMode="decimal"
-              disabled={disabledGlobal}
-              style={disabledGlobal ? { background:'#f1f5f9', color:'#94a3b8', cursor:'not-allowed' } : undefined}
-              value={dosageStr}
-              onChange={(e) => setDosageStr(e.target.value)}
-              onBlur={() => {
-                const n = onNumberCommit(dosageStr, inputs.globalDosage ?? 0)
-                setDosageStr(String(n))
-                onChange({ ...inputs, globalDosage: Math.max(0, n) })
-              }}
-              placeholder="e.g. 300"
-            />
-            {disabledGlobal && (
-              <div className="small" style={{ marginTop: 6 }}>
-                Per-cement mode is active. Edit dosage in the table rows.
-              </div>
-            )}
+          <div className="grid" style={{ gridTemplateColumns:'1fr 1fr', gap: 8 }}>
+            <div>
+              <label className="label" style={{ marginBottom: 6 }}>
+                Concrete strength
+                <Tooltip text="Used to pre-fill a sensible global binder dosage (you can tweak it)." />
+              </label>
+              <select
+                className="select"
+                value={inputs.concreteStrength ?? 'C25/30'}
+                onChange={(e) => {
+                  const v = e.target.value as NonNullable<InputsState['concreteStrength']>
+                  const next = { ...inputs, concreteStrength: v }
+                  if (inputs.dosageMode === 'global') {
+                    next.globalDosage = getDefaultDosage(v)
+                    setDosageDraft(String(next.globalDosage))
+                  }
+                  onChange(next)
+                }}
+              >
+                {strengthOptions.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label className="label" style={{ marginBottom: 6 }}>
+                Global dosage (kg/m³)
+              </label>
+              <input
+                className="input"
+                type="text"
+                inputMode="decimal"
+                value={dosageDraft}
+                disabled={perCement}
+                style={perCement ? { background:'#f1f5f9', color:'#94a3b8', cursor:'not-allowed' } : undefined}
+                onChange={(e) => setDosageDraft(e.target.value)}
+                onBlur={() => !perCement && onChange({ ...inputs, globalDosage: numberFromDraft(dosageDraft, inputs.globalDosage) })}
+              />
+              {perCement && (
+                <div className="small" style={{ marginTop: 6 }}>
+                  Per-cement mode is active. Edit dosage in the table rows.
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
