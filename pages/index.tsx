@@ -175,7 +175,7 @@ export default function Home() {
           setInputs={setInputs}
           onPerCementDosageChange={handlePerCementDosageChange}
           bestId={rowsSorted[0]?.cement.id}
-          baselineId={baseline?.id || null}
+          baselineId={baseline?.id}
         />
 
         {hasRows && (
