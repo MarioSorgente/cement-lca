@@ -309,3 +309,14 @@ body { margin: 0; background: var(--bg); color: var(--text); }
 /* Optional: tighten the line-height of stacked unit headers a touch */
 .th-unit { font-size: 11.5px; }
 
+/* Collapse button for Results */
+.collapse-btn{
+  display:inline-flex; align-items:center; gap:6px;
+  padding:6px 10px; border:1px solid var(--border-strong);
+  background:#fff; border-radius:999px; cursor:pointer; font-size:12px;
+}
+.collapse-btn:hover{ background:#f8fafc; }
+.collapse-btn .chev{ transition: transform .15s ease; transform: rotate(-90deg); }
+.collapse-btn .chev.open{ transform: rotate(0deg); }
+.collapse-text{ color:#334155; }
+
