@@ -41,13 +41,27 @@ type Props = {
   onToggleCompare?: (cementId: string) => void
 }
 
+/** Header cell with unified tooltip + sorting (tooltip uses portal to avoid overlap) */
 function Th({
-  onClick, active, dir, children, help,
-}: { onClick?: () => void; active?: boolean; dir?: 'asc'|'desc'; children: React.ReactNode; help?: string }) {
+  k, label, sortKey, sortDir, onSortChange, help,
+}: {
+  k: SortKey
+  label: string
+  sortKey: SortKey
+  sortDir: 'asc' | 'desc'
+  onSortChange: (k: SortKey) => void
+  help?: string
+}) {
+  const active = sortKey === k
   return (
-    <th onClick={onClick} title={help} style={{ cursor: onClick ? 'pointer' : 'default', whiteSpace:'nowrap' }}>
-      {children}{' '}
-      {active ? (dir === 'asc' ? '▲' : '▼') : null}
+    <th
+      className="th-sort"
+      onClick={() => onSortChange(k)}
+      style={{ whiteSpace: 'nowrap', cursor: 'pointer' }}
+    >
+      <span className="th-label">{label}</span>
+      {help && <Tooltip text={help} portal />}
+      <span className="sort-caret">{active ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</span>
     </th>
   )
 }
@@ -63,17 +77,25 @@ export default function ResultsTable({
   dosageMode, perCementDosage, onPerCementDosageChange,
   comparedIds, onToggleCompare,
 }: Props) {
-  const pageRows = useMemo(() => rows.slice(0, Math.max(1, pageSize)), [rows, pageSize])
-
   const headerHelp = {
     clinker:   'Clinker content by fraction; lower is typically better for GWP.',
     ef:        'Embodied carbon per kg of binder (A1–A3).',
     dosage:    'Binder dosage in kg per m³ of concrete.',
-    a1a3:      'A1–A3 contribution per m³ (dosage × EF).',
+    a1a3:      'A1–A3 per m³ (dosage × EF).',
     a4:        'Transport stage A4 for the whole element (distance × transport EF × volume).',
     total:     'A1–A3 per element + optional A4 transport.',
-    reduction: 'Reduction vs OPC baseline EF (worst OPC).',
+    reduction: 'Percent improvement vs baseline EF (worst OPC).',
   } as const
+
+  const pageRows = useMemo(() => rows.slice(0, Math.max(1, pageSize)), [rows, pageSize])
+
+  // For soft highlighting of the worst (non-baseline) row by reduction %
+  const worstNonBaselineId = useMemo(() => {
+    const pool = rows.filter(r => r.cement.id !== baselineId)
+    if (!pool.length) return undefined
+    const worst = pool.reduce((m, r) => (r.gwpReductionPct < m.gwpReductionPct ? r : m), pool[0])
+    return worst.cement.id
+  }, [rows, baselineId])
 
   return (
     <>
@@ -104,36 +126,62 @@ export default function ResultsTable({
           <thead>
             <tr>
               <th className="th-center" style={{ width: 40 }} aria-label="Compare column" />
-              <Th onClick={() => onSortChange('cement')} active={sortKey==='cement'} dir={sortDir}>Cement</Th>
-              <Th onClick={() => onSortChange('clinker')} active={sortKey==='clinker'} dir={sortDir} help={headerHelp.clinker}>Clinker</Th>
-              <Th onClick={() => onSortChange('ef')} active={sortKey==='ef'} dir={sortDir} help={headerHelp.ef}>EF (kg CO₂/kg)</Th>
-              <Th onClick={() => onSortChange('dosage')} active={sortKey==='dosage'} dir={sortDir} help={headerHelp.dosage}>Dosage</Th>
-              <Th onClick={() => onSortChange('a1a3')} active={sortKey==='a1a3'} dir={sortDir} help={headerHelp.a1a3}>A1–A3</Th>
-              <Th onClick={() => onSortChange('a4')} active={sortKey==='a4'} dir={sortDir} help={headerHelp.a4}>A4</Th>
-              <Th onClick={() => onSortChange('total')} active={sortKey==='total'} dir={sortDir} help={headerHelp.total}>Total</Th>
-              <Th onClick={() => onSortChange('reduction')} active={sortKey==='reduction'} dir={sortDir} help={headerHelp.reduction}>Δ vs baseline</Th>
+              <Th k="cement"    label="Cement"                 sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} />
+              <Th k="clinker"   label="Clinker"                sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} help={headerHelp.clinker} />
+              <Th k="ef"        label="EF (kg CO₂/kg)"         sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} help={headerHelp.ef} />
+              <Th k="dosage"    label="Dosage (kg/m³)"         sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} help={headerHelp.dosage} />
+              <Th k="a1a3"      label="CO₂e A1–A3 (kg/m³)"     sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} help={headerHelp.a1a3} />
+              <Th k="a4"        label="A4 (kg)"                sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} help={headerHelp.a4} />
+              <Th k="total"     label="Total CO₂ element (kg)" sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} help={headerHelp.total} />
+              <Th k="reduction" label="Δ vs baseline"          sortKey={sortKey} sortDir={sortDir} onSortChange={onSortChange} help={headerHelp.reduction} />
             </tr>
           </thead>
+
           <tbody>
             {pageRows.map(r => {
               const id = r.cement.id
               const inCompare = (comparedIds ?? []).includes(id)
-              const isBest = bestId === id
-              const isBaseline = baselineId === id
+              const isBest  = id === bestId
+              const isBase  = id === baselineId
+              const isWorst = id === worstNonBaselineId
+              const dim     = !r.exposureCompatible
 
-              const rowStyle: React.CSSProperties = isBest
-                ? { background:'#f0fdf4' }
-                : isBaseline
-                ? { background:'#fef2f2' }
-                : {}
+              // Subtle row tint + left stripe like before
+              let rowStyle: React.CSSProperties = {}
+              if (isBase)        rowStyle = { boxShadow: 'inset 0 0 0 9999px rgba(239,68,68,0.08)', borderColor: '#fecaca' }
+              else if (isWorst)  rowStyle = { boxShadow: 'inset 0 0 0 9999px rgba(245,158,11,0.08)', borderColor: '#f59e0b' }
+              else if (isBest)   rowStyle = { boxShadow: 'inset 0 0 0 9999px rgba(16,185,129,0.08)', borderColor: '#a7f3d0' }
+
+              const leftStripe = isBest ? '#10b981' : (isBase ? '#ef4444' : (isWorst ? '#f59e0b' : '#e5e7eb'))
+
+              // Pill logic (restores "Baseline")
+              const pct = r.gwpReductionPct
+              let pill: JSX.Element
+              if (isBase) {
+                pill = <span className="pill pill-red">Baseline</span>
+              } else if (pct <= 0) {
+                pill = <span className="pill pill-red">↑ {Math.abs(Math.round(pct))}%</span>
+              } else if (pct <= 10) {
+                pill = <span className="pill pill-amber">↓ {Math.round(pct)}%</span>
+              } else if (pct <= 20) {
+                pill = <span className="pill pill-green">↓ {Math.round(pct)}%</span>
+              } else {
+                pill = <span className="pill pill-deepgreen">↓ {Math.round(pct)}%</span>
+              }
+
+              const dosageEditable = dosageMode === 'perCement' && !!onPerCementDosageChange
+              const dosageValue = dosageEditable
+                ? (perCementDosage?.[id] ?? r.dosageUsed)
+                : r.dosageUsed
 
               return (
                 <tr
                   key={id}
-                  style={rowStyle}
-                  className={onRowClick ? 'row-click' : undefined}
-                  onClick={onRowClick ? () => onRowClick(id) : undefined}
+                  className={['tr-elevated', selectedId === id ? 'tr-selected' : '', dim ? 'row-dim' : ''].join(' ').trim()}
+                  onClick={() => onRowClick?.(id)}
+                  style={{ ...rowStyle, cursor: onRowClick ? 'pointer' : 'default', borderLeft: `4px solid ${leftStripe}` }}
                 >
+                  {/* Compare toggle (tiny) */}
                   <td className="td-center" onClick={(e) => e.stopPropagation()}>
                     <CompareToggle
                       selected={inCompare}
@@ -142,34 +190,40 @@ export default function ResultsTable({
                     />
                   </td>
 
+                  {/* Cement info + SCM tags */}
                   <td>
                     <div style={{ fontWeight: 600 }}>{r.cement.cement_type}</div>
-                    <div className="small" style={{ display:'flex', gap:6, marginTop: 4 }}>
-                      {(r.tags ?? []).map(t => <span key={t} className="chip">{t}</span>)}
-                    </div>
+                    {(r.tags?.length ?? 0) > 0 && (
+                      <div className="small" style={{ display:'flex', gap:6, marginTop: 4, flexWrap: 'wrap' }}>
+                        {r.tags!.map(t => <span key={t} className="chip">{t}</span>)}
+                      </div>
+                    )}
                   </td>
 
-                  <td style={{ whiteSpace:'nowrap' }}>{Math.round(r.cement.clinker_fraction * 100)}%</td>
-                  <td>{Number(r.cement.co2e_per_kg_binder_A1A3).toFixed(3)}</td>
+                  <td className="num-strong" style={{ whiteSpace:'nowrap' }}>{Math.round(r.cement.clinker_fraction * 100)}%</td>
+                  <td className="num-strong">{Number(r.cement.co2e_per_kg_binder_A1A3).toFixed(3)}</td>
+
                   <td style={{ whiteSpace:'nowrap' }}>
-                    {typeof r.dosageUsed === 'number' ? Math.round(r.dosageUsed) : r.dosageUsed}
+                    {dosageEditable ? (
+                      <input
+                        className="input sm"
+                        type="number"
+                        min={0}
+                        value={String(dosageValue)}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => onPerCementDosageChange!(id, Number(e.target.value) || 0)}
+                        title="Edit dosage for this cement (kg/m³)"
+                      />
+                    ) : (
+                      <span className="num-strong">{formatNumber(dosageValue)}</span>
+                    )}
                   </td>
-                  <td>{formatNumber(Math.round(r.co2ePerM3_A1A3))}</td>
-                  <td>{formatNumber(Math.round(r.a4Transport))}</td>
-                  <td>{formatNumber(Math.round(r.totalElement))}</td>
 
-                  <td>
-                    {r.gwpReductionPct === 0
-                      ? <span className="chip chip-red">0%</span>
-                      : r.gwpReductionPct > 20
-                      ? <span className="chip chip-deepgreen">↓ {Math.round(r.gwpReductionPct)}%</span>
-                      : r.gwpReductionPct > 10
-                      ? <span className="chip chip-green">↓ {Math.round(r.gwpReductionPct)}%</span>
-                      : r.gwpReductionPct > 0
-                      ? <span className="chip chip-yellow">↓ {Math.round(r.gwpReductionPct)}%</span>
-                      : <span className="chip chip-red">↑ {Math.abs(Math.round(r.gwpReductionPct))}%</span>
-                    }
-                  </td>
+                  <td className="num-strong">{formatNumber(r.co2ePerM3_A1A3)}</td>
+                  <td className="num-strong">{formatNumber(r.a4Transport)}</td>
+                  <td className="num-strong">{formatNumber(r.totalElement)}</td>
+
+                  <td>{pill}</td>
                 </tr>
               )
             })}
