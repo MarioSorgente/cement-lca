@@ -36,12 +36,10 @@ type Props = {
   perCementDosage?: Record<string, number>
   onPerCementDosageChange?: (cementId: string, val: number) => void
 
-  /* compare */
   comparedIds?: string[]
   onToggleCompare?: (cementId: string) => void
 }
 
-/** Header cell with unified tooltip + sorting (tooltip uses portal to avoid overlap) */
 function Th({
   k, label, sortKey, sortDir, onSortChange, help,
 }: {
@@ -55,13 +53,12 @@ function Th({
   const active = sortKey === k
   return (
     <th
-      className="th-sort"
       onClick={() => onSortChange(k)}
-      style={{ whiteSpace: 'nowrap', cursor: 'pointer' }}
+      style={{ whiteSpace:'nowrap', cursor:'pointer' }}
     >
-      <span className="th-label">{label}</span>
+      <span className="th-label">{label}</span>{' '}
       {help && <Tooltip text={help} portal />}
-      <span className="sort-caret">{active ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</span>
+      {active && <span className="sort-caret">{sortDir === 'asc' ? ' ▲' : ' ▼'}</span>}
     </th>
   )
 }
@@ -77,19 +74,18 @@ export default function ResultsTable({
   dosageMode, perCementDosage, onPerCementDosageChange,
   comparedIds, onToggleCompare,
 }: Props) {
-  const headerHelp = {
-    clinker:   'Clinker content by fraction; lower is typically better for GWP.',
-    ef:        'Embodied carbon per kg of binder (A1–A3).',
-    dosage:    'Binder dosage in kg per m³ of concrete.',
-    a1a3:      'A1–A3 per m³ (dosage × EF).',
-    a4:        'Transport stage A4 for the whole element (distance × transport EF × volume).',
-    total:     'A1–A3 per element + optional A4 transport.',
-    reduction: 'Percent improvement vs baseline EF (worst OPC).',
-  } as const
-
   const pageRows = useMemo(() => rows.slice(0, Math.max(1, pageSize)), [rows, pageSize])
 
-  // For soft highlighting of the worst (non-baseline) row by reduction %
+  const headerHelp = {
+    clinker:   'Clinker fraction; lower tends to reduce GWP.',
+    ef:        'Embodied carbon of binder A1–A3 (kg CO₂ per kg).',
+    dosage:    'Binder dosage per m³ of concrete (kg/m³).',
+    a1a3:      'A1–A3 per m³ = dosage × EF.',
+    a4:        'Transport (A4) for the whole element = distance × transport EF × volume.',
+    total:     'A1–A3 per element + (optional) A4.',
+    reduction: 'Reduction vs worst OPC EF (baseline).',
+  } as const
+
   const worstNonBaselineId = useMemo(() => {
     const pool = rows.filter(r => r.cement.id !== baselineId)
     if (!pool.length) return undefined
@@ -146,7 +142,6 @@ export default function ResultsTable({
               const isWorst = id === worstNonBaselineId
               const dim     = !r.exposureCompatible
 
-              // Subtle row tint + left stripe like before
               let rowStyle: React.CSSProperties = {}
               if (isBase)        rowStyle = { boxShadow: 'inset 0 0 0 9999px rgba(239,68,68,0.08)', borderColor: '#fecaca' }
               else if (isWorst)  rowStyle = { boxShadow: 'inset 0 0 0 9999px rgba(245,158,11,0.08)', borderColor: '#f59e0b' }
@@ -154,7 +149,6 @@ export default function ResultsTable({
 
               const leftStripe = isBest ? '#10b981' : (isBase ? '#ef4444' : (isWorst ? '#f59e0b' : '#e5e7eb'))
 
-              // Pill logic (restores "Baseline")
               const pct = r.gwpReductionPct
               let pill: JSX.Element
               if (isBase) {
@@ -181,7 +175,6 @@ export default function ResultsTable({
                   onClick={() => onRowClick?.(id)}
                   style={{ ...rowStyle, cursor: onRowClick ? 'pointer' : 'default', borderLeft: `4px solid ${leftStripe}` }}
                 >
-                  {/* Compare toggle (tiny) */}
                   <td className="td-center" onClick={(e) => e.stopPropagation()}>
                     <CompareToggle
                       selected={inCompare}
@@ -190,12 +183,15 @@ export default function ResultsTable({
                     />
                   </td>
 
-                  {/* Cement info + SCM tags */}
                   <td>
                     <div style={{ fontWeight: 600 }}>{r.cement.cement_type}</div>
                     {(r.tags?.length ?? 0) > 0 && (
-                      <div className="small" style={{ display:'flex', gap:6, marginTop: 4, flexWrap: 'wrap' }}>
-                        {r.tags!.map(t => <span key={t} className="chip">{t}</span>)}
+                      <div className="small" style={{ display:'flex', gap:6, marginTop: 4, flexWrap:'wrap' }}>
+                        {r.tags!.map(t => (
+                          <Tooltip key={t} text={`Tag: ${t}`} portal>
+                            <span className="chip">{t}</span>
+                          </Tooltip>
+                        ))}
                       </div>
                     )}
                   </td>
