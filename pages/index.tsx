@@ -21,7 +21,7 @@ import {
   exportRowsAsCsv,
 } from '../lib/calc'
 
-// Load your dataset directly from /public (no lib/data.ts needed)
+// Load your dataset directly from /public
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const ALL_CEMENTS: Cement[] = require('../public/data/cements.json') as Cement[]
 
@@ -32,7 +32,8 @@ type SortDir = 'asc' | 'desc'
 type Scope = 'all' | 'compatible' | 'common'
 
 const DEFAULT_INPUTS: InputsState = {
-  strengthClass: 'C25/30',  // optional UI field
+  concreteStrength: 'C25/30', // UI-only
+  strengthClass: 'C25/30',    // (kept for compatibility if referenced somewhere)
   exposureClass: 'XC2' as ExposureClass,
   volumeM3: 100,
   distanceKm: 0,
