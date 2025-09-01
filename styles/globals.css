@@ -440,5 +440,15 @@ body { margin: 0; background: var(--bg); color: var(--text); }
 /* Optional: soften the last row bottom edge within the card */
 .table tbody tr:last-child td { border-bottom: none; }
 
+/* Stack header label + unit to save width */
+.th-stack { display: inline-flex; flex-direction: column; align-items: flex-start; }
+.th-row   { display: inline-flex; align-items: center; gap: 6px; }
+.th-unit  { margin-top: 2px; color: var(--muted); }
+
+/* Let table content breathe; no clipping. Sticky header still works. */
+.table-scroll { overflow-x: auto; overflow-y: visible; }
+
+/* Use soft background tints (no massive inset shadows) to avoid clipping visuals */
+
 
 
