@@ -35,6 +35,17 @@ type Props = {
   onPerCementDosageChange?: (cementId: string, val: number) => void
 }
 
+/** Short, human help for tag tooltips */
+const TAG_HELP: Record<string, string> = {
+  OPC: 'Ordinary Portland Cement (CEM I). Typically higher clinker.',
+  Slag: 'Contains ground granulated blast-furnace slag (S).',
+  FlyAsh: 'Contains fly ash (V).',
+  Pozzolana: 'Contains natural/industrial pozzolans (P).',
+  Limestone: 'Contains limestone filler (LL).',
+  CalcinedClay: 'Contains calcined clay (CC).',
+  Composite: 'Composite cement: multiple SCMs.',
+}
+
 function Th({
   label,
   sortKey,
@@ -91,6 +102,7 @@ export default function ResultsTable({
   onPerCementDosageChange,
 }: Props) {
   const totalCount = rows.length
+  const pageRows = useMemo(() => rows.slice(0, pageSize), [rows, pageSize])
 
   const headerHelp = {
     clinker: 'Clinker content by fraction; lower is typically better for GWP.',
@@ -101,8 +113,6 @@ export default function ResultsTable({
     total: 'A1–A3 per element + optional A4 transport.',
     reduction: 'Percent improvement vs baseline EF (worst OPC by default).',
   }
-
-  const pageRows = useMemo(() => rows.slice(0, pageSize), [rows, pageSize])
 
   return (
     <>
@@ -149,11 +159,11 @@ export default function ResultsTable({
               <Th label="Dosage (kg/m³)" sortKey="dosage" activeKey={sortKey} dir={sortDir} onSort={onSortChange} help={headerHelp.dosage} />
               <Th label="CO₂e A1–A3 (kg/m³)" sortKey="a1a3" activeKey={sortKey} dir={sortDir} onSort={onSortChange} help={headerHelp.a1a3} />
               <Th label="A4 (kg)" sortKey="a4" activeKey={sortKey} dir={sortDir} onSort={onSortChange} help={headerHelp.a4} />
-              {/* ✅ Renamed column */}
               <Th label="Total CO₂ element (kg)" sortKey="total" activeKey={sortKey} dir={sortDir} onSort={onSortChange} help={headerHelp.total} />
               <Th label="Δ vs baseline" sortKey="reduction" activeKey={sortKey} dir={sortDir} onSort={onSortChange} help={headerHelp.reduction} />
             </tr>
           </thead>
+
           <tbody>
             {pageRows.map((r) => {
               const isBest = bestId && r.cement.id === bestId
@@ -184,9 +194,29 @@ export default function ResultsTable({
                 >
                   <td className="cell-title">
                     <div className="title">{r.cement.cement_type}</div>
+
+                    {/* strength + clinker line */}
                     <div className="small subtitle">
                       {r.cement.strength_class} • {Math.round(r.cement.clinker_fraction * 100)}% clinker
                     </div>
+
+                    {/* ✅ Restored category chips with tooltip info */}
+                    {r.tags?.length > 0 && (
+                      <div style={{ marginTop: 6 }}>
+                        {r.tags.map(tag => (
+                          <span
+                            key={tag}
+                            className="tag tooltip-wrapper"
+                            style={{ marginRight: 6, marginBottom: 4 }}
+                          >
+                            {tag}
+                            <span className="tooltip-box tooltip-right">
+                              {TAG_HELP[tag] ?? tag}
+                            </span>
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </td>
 
                   <td className="num-strong">{Math.round(r.cement.clinker_fraction * 100)}%</td>
@@ -212,8 +242,6 @@ export default function ResultsTable({
 
                   <td className="num-strong">{formatNumber(r.co2ePerM3_A1A3)}</td>
                   <td className="num-strong">{formatNumber(r.a4Transport)}</td>
-
-                  {/* ✅ Formatted with thousands separators */}
                   <td className="num-strong">{formatNumber(r.totalElement)}</td>
 
                   <td>
