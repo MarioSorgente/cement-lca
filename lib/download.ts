@@ -12,9 +12,10 @@ export function downloadCSV(rows: ResultRow[], inputs: InputsState) {
     (s ?? '').replace(/\r?\n/g, ' ').replace(/,/g, ';')
 
   const lines = rows.map(r => {
-    const scms = r.cement.scms
-      .map(s => `${s.type}:${Math.round(s.fraction * 100)}%`)
-      .join('+') || '—'
+    const scms =
+      (r.cement?.scms ?? []).length > 0
+        ? (r.cement!.scms!).map(s => `${s.type}:${Math.round((s.fraction ?? 0) * 100)}%`).join('+')
+        : '—'
 
     return [
       r.cement.id,
@@ -28,7 +29,7 @@ export function downloadCSV(rows: ResultRow[], inputs: InputsState) {
       Math.round(r.a4Transport),
       Math.round(r.totalElement),
       r.exposureCompatible ? 'Yes' : 'No',
-      r.tags.join('|'),
+      (r.tags ?? []).join('|'),
       sanitize(r.cement.notes)
     ].join(',')
   })
