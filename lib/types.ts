@@ -51,8 +51,9 @@ export interface InputsState {
   dosageMode: 'global' | 'perCement';
   globalDosage: number;
 
-  /** optional UI-only field so the page compiles even if unused in calc */
-  strengthClass?: string;
+  /** UI-only fields (safe to be optional; calc does not depend on them) */
+  concreteStrength?: string;   // e.g. 'C25/30'
+  strengthClass?: string;      // kept for compatibility if something still reads this
 }
 
 /** A computed row used by the table & chart */
