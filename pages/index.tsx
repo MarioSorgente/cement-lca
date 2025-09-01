@@ -1,5 +1,4 @@
 // pages/index.tsx
-// pages/index.tsx
 import React, { useMemo, useState } from 'react'
 import type { NextPage } from 'next'
 
@@ -23,11 +22,11 @@ import {
   exportRowsAsCsv,
 } from '../lib/calc'
 
-// ⬇️ Load the dataset directly from /public (no lib/data.ts needed)
+// ⬇️ Load your dataset directly from /public (no lib/data.ts)
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const ALL_CEMENTS: Cement[] = require('../public/data/cements.json') as Cement[]
 
-
+// ---- Sorting + helpers ------------------------------------------------
 type SortKey =
   | 'cement' | 'strength' | 'clinker' | 'ef' | 'dosage' | 'a1a3' | 'a4' | 'total' | 'reduction'
 type SortDir = 'asc' | 'desc'
@@ -100,13 +99,16 @@ function fallbackExportCsv(rows: ResultRow[]) {
   URL.revokeObjectURL(url)
 }
 
+// ---- Page --------------------------------------------------------------
 const Home: NextPage = () => {
+  // Inputs
   const [inputs, setInputs] = useState<InputsState>(DEFAULT_INPUTS)
   const [perCementDosage, setPerCementDosage] = useState<Record<string, number>>({})
   const handlePerCementDosageChange = (cementId: string, val: number) => {
     setPerCementDosage(prev => ({ ...prev, [cementId]: val }))
   }
 
+  // Table controls
   const [pageSize, setPageSize] = useState<number>(50)
   const [sortKey, setSortKey] = useState<SortKey>('total')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
@@ -114,19 +116,20 @@ const Home: NextPage = () => {
   const [scope, setScope] = useState<Scope>('all')
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
+  // Compute rows
   const rowsRaw: ResultRow[] = useMemo(() => {
     return computeRows(ALL_CEMENTS, inputs, /* baselineEFNullable */ null, perCementDosage)
   }, [inputs, perCementDosage])
 
   const baseline = useMemo(() => opcWorstBaseline(rowsRaw), [rowsRaw])
 
+  // Filter
   const rowsFiltered = useMemo(() => {
     let arr = rowsRaw
     if (scope === 'compatible') {
       arr = arr.filter(r => r.exposureCompatible)
     } else if (scope === 'common') {
-      // <— changed here: read the flag on the cement itself
-      arr = arr.filter(r => Boolean((r.cement as any).common))
+      arr = arr.filter(r => Boolean((r.cement as any).is_common || (r.cement as any).common))
     }
     if (search.trim()) {
       const q = search.toLowerCase()
@@ -139,11 +142,13 @@ const Home: NextPage = () => {
     return arr
   }, [rowsRaw, scope, search])
 
+  // Sort
   const rowsSorted = useMemo(
     () => sortRows(rowsFiltered, sortKey, sortDir),
     [rowsFiltered, sortKey, sortDir]
   )
 
+  // Export
   const exportCsv = () => {
     try {
       if (typeof exportRowsAsCsv === 'function') {
@@ -156,7 +161,7 @@ const Home: NextPage = () => {
     }
   }
 
-  // Compare state (A)
+  // ----- Compare (tray + drawer) -----
   const [comparedIds, setComparedIds] = useState<string[]>([])
   const [cmpOpen, setCmpOpen] = useState(false)
 
@@ -181,14 +186,9 @@ const Home: NextPage = () => {
       return [...prev, id]
     })
   }
-  function removeFromCompare(id: string) {
-    setComparedIds(prev => prev.filter(x => x !== id))
-  }
+  function removeFromCompare(id: string) { setComparedIds(prev => prev.filter(x => x !== id)) }
   function replaceInCompare(oldId: string, newId: string) {
-    setComparedIds(prev => {
-      if (prev.includes(newId)) return prev
-      return prev.map(x => (x === oldId ? newId : x))
-    })
+    setComparedIds(prev => (prev.includes(newId) ? prev : prev.map(x => (x === oldId ? newId : x))))
   }
 
   const hasRows = rowsSorted.length > 0
@@ -211,6 +211,7 @@ const Home: NextPage = () => {
         </div>
       </header>
 
+      {/* Inputs */}
       <div className="card">
         <Inputs
           inputs={inputs}
@@ -220,6 +221,7 @@ const Home: NextPage = () => {
         />
       </div>
 
+      {/* Table */}
       <ResultsTable
         rows={rowsSorted.slice(0, pageSize)}
         pageSize={pageSize}
@@ -246,6 +248,7 @@ const Home: NextPage = () => {
         onToggleCompare={toggleCompare}
       />
 
+      {/* Chart */}
       {hasRows && (
         <BarChart
           rows={rowsSorted.slice(0, pageSize)}
@@ -256,12 +259,12 @@ const Home: NextPage = () => {
         />
       )}
 
+      {/* Compare tray + drawer */}
       <CompareTray
         items={comparedItems}
         onOpen={() => setCmpOpen(true)}
         onRemove={removeFromCompare}
       />
-
       <ComparePanel
         open={cmpOpen}
         onClose={() => setCmpOpen(false)}
