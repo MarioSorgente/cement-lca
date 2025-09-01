@@ -18,40 +18,32 @@ import { formatNumber } from '../lib/calc'
 import { tagsForCement } from '../lib/tags'
 import { downloadCSV } from '../lib/download'
 
-// If you prefer runtime fetch, move the JSON to /data and fetch('/data/cements.json') in useEffect.
-// Importing the JSON keeps things simple here.
 import cementsData from '../public/data/cements.json'
 
 // ---------- Helpers ----------
-function buildRow(c: Cement, inputs: InputsState, perCementDosage: Record<string, number>): ResultRow {
-  // dosage
+function isOPC(c: Cement): boolean {
+  return (c.scms?.length ?? 0) === 0 || (c.cement_type || '').toUpperCase().startsWith('CEM I')
+}
+
+function buildRow(c: Cement, inputs: InputsState, perCementDosage: Record<string, number>, baselineEF: number): ResultRow {
   const dosageUsed =
     inputs.dosageMode === 'perCement'
       ? Math.max(0, perCementDosage[c.id] ?? c.default_dosage_kg_per_m3 ?? inputs.globalDosage)
       : Math.max(0, inputs.globalDosage)
 
-  // A1–A3 per m3
   const ef = Number(c.co2e_per_kg_binder_A1A3 ?? 0)
   const co2ePerM3_A1A3 = dosageUsed * ef
 
-  // A4 per element (very simplified: distance × EF)
   const distanceKm = Number(inputs.distanceKm ?? 0)
   const a4Ef = Number(c.transport_ef_kg_per_m3_km ?? 0) * (inputs.volumeM3 ?? 0)
   const a4Transport = inputs.includeA4 ? distanceKm * a4Ef : 0
 
-  // Total per element
   const totalElement = co2ePerM3_A1A3 * (inputs.volumeM3 ?? 0) + a4Transport
 
-  // Exposure compatible?
   const exposureCompatible =
     Array.isArray(c.compatible_exposure_classes) &&
     c.compatible_exposure_classes.includes(inputs.exposureClass)
 
-  // Very simple “OPC baseline EF” (first CEM I 42.5N or any with no SCMs)
-  const baseline = (cementsData as Cement[]).find(x =>
-    (x.cement_type || '').toUpperCase().startsWith('CEM I') || (x.scms ?? []).length === 0
-  )
-  const baselineEF = Number(baseline?.co2e_per_kg_binder_A1A3 ?? ef)
   const gwpReductionPct = baselineEF > 0 ? ((baselineEF - ef) / baselineEF) * 100 : 0
 
   return {
@@ -66,8 +58,10 @@ function buildRow(c: Cement, inputs: InputsState, perCementDosage: Record<string
   }
 }
 
-function sortRows(rows: ResultRow[], key:
-  'cement' | 'strength' | 'clinker' | 'ef' | 'dosage' | 'a1a3' | 'a4' | 'total' | 'reduction',
+// Sorting helper
+function sortRows(
+  rows: ResultRow[],
+  key: 'cement' | 'strength' | 'clinker' | 'ef' | 'dosage' | 'a1a3' | 'a4' | 'total' | 'reduction',
   dir: 'asc' | 'desc'
 ) {
   const mul = dir === 'asc' ? 1 : -1
@@ -92,9 +86,8 @@ function sortRows(rows: ResultRow[], key:
   })
 }
 
-// ---------- Page ----------
 const Home: NextPage = () => {
-  // Inputs default (as in your screenshot)
+  // Defaults aligned to your screenshot
   const [inputs, setInputs] = useState<InputsState>({
     exposureClass: 'XC2',
     volumeM3: 100,
@@ -105,19 +98,27 @@ const Home: NextPage = () => {
     concreteStrength: 'C25/30',
   })
 
-  // dosage overrides (per cement)
   const [perCementDosage, setPerCementDosage] = useState<Record<string, number>>({})
   const handlePerCementDosageChange = useCallback((cementId: string, val: number) => {
     setPerCementDosage(prev => ({ ...prev, [cementId]: val }))
   }, [])
 
-  // Rows
-  const rowsAll = useMemo(() => {
-    const list = (cementsData as Cement[]).map(c => buildRow(c, inputs, perCementDosage))
-    return list
-  }, [inputs, perCementDosage])
+  // Compute OPC baseline (worst EF among OPCs)
+  const { opcBaselineId, baselineEF, baselineLabel } = useMemo(() => {
+    const all = (cementsData as Cement[])
+    const opc = all.filter(isOPC)
+    if (!opc.length) return { opcBaselineId: undefined as string | undefined, baselineEF: 0, baselineLabel: undefined as string | undefined }
+    const worst = opc.reduce((m, c) =>
+      (c.co2e_per_kg_binder_A1A3 ?? 0) > (m.co2e_per_kg_binder_A1A3 ?? 0) ? c : m, opc[0])
+    return { opcBaselineId: worst.id, baselineEF: Number(worst.co2e_per_kg_binder_A1A3 ?? 0), baselineLabel: worst.cement_type }
+  }, [])
 
-  // Search + scope
+  // Build rows using that baseline EF
+  const rowsAll = useMemo(() => {
+    return (cementsData as Cement[]).map(c => buildRow(c, inputs, perCementDosage, baselineEF))
+  }, [inputs, perCementDosage, baselineEF])
+
+  // Search / scope
   const [search, setSearch] = useState('')
   const [scope, setScope] = useState<'all' | 'compatible' | 'common'>('all')
 
@@ -128,15 +129,14 @@ const Home: NextPage = () => {
     const s = search.trim().toLowerCase()
     if (s) {
       rs = rs.filter(r => {
-        const hay =
-          `${r.cement.cement_type} ${r.cement.notes ?? ''} ${(r.tags ?? []).join(' ')}`.toLowerCase()
+        const hay = `${r.cement.cement_type} ${r.cement.notes ?? ''} ${(r.tags ?? []).join(' ')}`.toLowerCase()
         return hay.includes(s)
       })
     }
     return rs
   }, [rowsAll, scope, search])
 
-  // Sort + pagination
+  // Sort & paginate
   const [sortKey, setSortKey] = useState<'cement' | 'strength' | 'clinker' | 'ef' | 'dosage' | 'a1a3' | 'a4' | 'total' | 'reduction'>('total')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [pageSize, setPageSize] = useState<number>(50)
@@ -146,7 +146,7 @@ const Home: NextPage = () => {
     [rowsFiltered, sortKey, sortDir]
   )
 
-  // Compare (minimal fab + right drawer)
+  // Compare set
   const [comparedIds, setComparedIds] = useState<string[]>([])
   const comparedItems = useMemo(() => {
     return comparedIds
@@ -165,27 +165,22 @@ const Home: NextPage = () => {
     setComparedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
   }, [])
 
-  const removeFromCompare = useCallback((id: string) => {
-    setComparedIds(prev => prev.filter(x => x !== id))
-  }, [])
-
   const [cmpOpen, setCmpOpen] = useState(false)
 
-  // Export CSV (use the download.ts that builds a nice CSV including assumptions)
-  const handleExport = useCallback(() => {
-    downloadCSV(rowsSorted, inputs)
-  }, [rowsSorted, inputs])
+  // Export
+  const handleExport = useCallback(() => downloadCSV(rowsSorted, inputs), [rowsSorted, inputs])
 
-  // Best id (lowest total)
+  // Best id by total
   const bestId = useMemo(() => {
-    return rowsSorted.length ? rowsSorted.reduce((min, r) => r.totalElement < min.totalElement ? r : min, rowsSorted[0]).cement.id : undefined
+    return rowsSorted.length
+      ? rowsSorted.reduce((min, r) => r.totalElement < min.totalElement ? r : min, rowsSorted[0]).cement.id
+      : undefined
   }, [rowsSorted])
 
   return (
     <div className="container">
       <h1 className="title">Cement LCA Comparison</h1>
 
-      {/* Inputs */}
       <Inputs
         inputs={inputs}
         onChange={setInputs}
@@ -193,7 +188,6 @@ const Home: NextPage = () => {
         onPerCementDosageChange={handlePerCementDosageChange}
       />
 
-      {/* Search + table */}
       <ResultsTable
         rows={rowsSorted}
         pageSize={pageSize}
@@ -212,6 +206,7 @@ const Home: NextPage = () => {
         onRowClick={(id) => toggleCompare(id)}
         selectedId={null}
         bestId={bestId}
+        baselineId={opcBaselineId}
         dosageMode={inputs.dosageMode}
         perCementDosage={perCementDosage}
         onPerCementDosageChange={handlePerCementDosageChange}
@@ -219,12 +214,16 @@ const Home: NextPage = () => {
         onToggleCompare={toggleCompare}
       />
 
-      {/* Chart */}
       <div className="card" style={{ marginTop: 12 }}>
-        <BarChart rows={rowsSorted} bestId={bestId} />
+        <BarChart
+          rows={rowsSorted}
+          bestId={bestId}
+          opcBaselineId={opcBaselineId}
+          baselineEf={baselineEF}
+          baselineLabel={baselineLabel}
+        />
       </div>
 
-      {/* Floating compare trigger + right drawer */}
       <CompareFab
         items={comparedItems}
         onOpen={() => setCmpOpen(true)}
@@ -235,6 +234,7 @@ const Home: NextPage = () => {
         onClose={() => setCmpOpen(false)}
         comparedIds={comparedIds}
         rowsById={rowsById}
+        inputs={inputs}
       />
 
       <footer className="footer">
