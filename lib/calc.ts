@@ -69,10 +69,14 @@ function elementImpacts(
  * If no OPC exists in the dataset, use the worst EF overall.
  */
 function baselineEfFromCements(cements: Cement[]): number {
-  const opc = cements.filter(c => (c.scms?.length ?? 0) === 0 || c.cement_type?.toUpperCase()?.includes('OPC'))
+  const opc = cements.filter(
+    c => (c.scms?.length ?? 0) === 0 || c.cement_type?.toUpperCase()?.includes('OPC')
+  )
   const pool = opc.length ? opc : cements
-  const worst = pool.reduce((m, c) =>
-    (c.co2e_per_kg_binder_A1A3 > m.co2e_per_kg_binder_A1A3 ? c : m), pool[0])
+  const worst = pool.reduce(
+    (m, c) => (c.co2e_per_kg_binder_A1A3 > m.co2e_per_kg_binder_A1A3 ? c : m),
+    pool[0]
+  )
   return Number(worst?.co2e_per_kg_binder_A1A3 ?? 0)
 }
 
@@ -105,7 +109,6 @@ export function computeRows(
     const row: ResultRow = {
       cement: c,
       exposureCompatible: isExposureCompatible(c, inputs.exposureClass),
-      isCommon: !!(c as any).common,
 
       dosageUsed,
       co2ePerM3_A1A3: a1a3PerM3,
@@ -126,12 +129,14 @@ export function computeRows(
  */
 export function opcWorstBaseline(rows: ResultRow[]): ResultRow | undefined {
   if (!rows?.length) return undefined
-  const opcRows = rows.filter(r =>
-    (r.cement.scms?.length ?? 0) === 0 || r.cement.cement_type?.toUpperCase()?.includes('OPC')
+  const opcRows = rows.filter(
+    r => (r.cement.scms?.length ?? 0) === 0 || r.cement.cement_type?.toUpperCase()?.includes('OPC')
   )
   const pool = opcRows.length ? opcRows : rows
-  return pool.reduce((m, r) =>
-    (r.cement.co2e_per_kg_binder_A1A3 > m.cement.co2e_per_kg_binder_A1A3 ? r : m), pool[0])
+  return pool.reduce(
+    (m, r) => (r.cement.co2e_per_kg_binder_A1A3 > m.cement.co2e_per_kg_binder_A1A3 ? r : m),
+    pool[0]
+  )
 }
 
 /**
