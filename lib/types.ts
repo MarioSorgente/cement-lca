@@ -1,80 +1,82 @@
 // lib/types.ts
 
-// ---- SCMs (Supplementary Cementitious Materials) ----
-export type SCMType = 'S' | 'V' | 'P' | 'LL' | 'CC' // Slag, Fly ash, Pozzolana, Limestone, Calcined Clay
-export interface SCM { type: SCMType; fraction: number }
+/** Loosely-typed enums so we don't fight the dataset */
+export type ExposureClass = string;   // e.g. 'XC2'
+export type StrengthClass = string;   // e.g. '42.5N'
 
-// ---- Concrete strength & exposure classes (match UI & data) ----
-export type ConcreteStrength =
-  | 'C20/25' | 'C25/30' | 'C30/37' | 'C35/45' | 'C40/50' | 'C45/55' | 'C50/60'
+/** SCM entry (supplementary cementitious material) */
+export interface Scm {
+  type: string;            // 'S' | 'V' | 'P' | 'LL' | 'CC' ... (kept as string for flexibility)
+  fraction?: number;       // optional fraction (0..1)
+}
 
-export type ExposureClass =
-  | 'XC1' | 'XC2' | 'XC3' | 'XC4'
-  | 'XD1' | 'XD2' | 'XD3'
-  | 'XS1' | 'XS2' | 'XS3'
-  | 'XF1' | 'XF2'
-  | 'XA2' | 'XA3'
-
-// ---- Filters for tag chips ----
-export type TagFilterKey =
-  | 'OPC' | 'Slag' | 'FlyAsh' | 'Pozzolana' | 'Limestone' | 'CalcinedClay' | 'Composite'
-
-export type Filters = Record<TagFilterKey, boolean>
-
-// ---- Cement record (matches public/data/cements.json) ----
+/** One cement record (matches your public/data/cements.json shape) */
 export interface Cement {
-  id: string
-  standard: string
-  cement_type: string
-  strength_class: string
-  early_strength: 'N' | 'R'
-  clinker_fraction: number
-  scms: SCM[]
-  density_kg_m3: number
-  default_dosage_kg_per_m3: number
+  id: string;
+  standard?: string;
+  cement_type: string;
+  strength_class: StrengthClass;             // e.g. '42.5N'
+  early_strength?: 'N' | 'R' | string;
 
-  co2e_per_kg_binder_A1A3: number
-  transport_ef_kg_per_m3_km: number
+  /** core technicals */
+  clinker_fraction: number;                  // 0..1
+  scms?: Scm[];                              // empty for OPC
+  density_kg_m3?: number;
+  default_dosage_kg_per_m3?: number;
+  co2e_per_kg_binder_A1A3: number;           // EF
+  transport_ef_kg_per_m3_km?: number;
 
-  typical_w_c_range?: [number, number]
-  compatible_exposure_classes?: ExposureClass[]
-  declared_scope?: string
-  notes?: string
-  applications?: string[]
-  is_common?: boolean
+  /** exposure / scope */
+  typical_w_c_range?: [number, number];
+  compatible_exposure_classes?: string[];
+  declared_scope?: string;
+
+  /** UX / copy */
+  notes?: string;
+  applications?: string[];
+
+  /** optional flags (your JSON sometimes uses is_common) */
+  is_common?: boolean;
+  common?: boolean;
 }
 
-// ---- Inputs state for the UI ----
-export type DosageMode = 'global' | 'perCement'
-
+/** UI & calculation inputs */
 export interface InputsState {
-  // Design inputs
-  concreteStrength: ConcreteStrength
-  exposureClass: ExposureClass
+  exposureClass: ExposureClass;
+  volumeM3: number;
+  distanceKm: number;
+  includeA4: boolean;
 
-  // Element & logistics
-  volumeM3: number
-  distanceKm: number
-  includeA4: boolean
+  /** dosage selection */
+  dosageMode: 'global' | 'perCement';
+  globalDosage: number;
 
-  // Dosage
-  dosageMode: DosageMode
-  globalDosage: number
-  perCementDosage: Record<string, number>
-
-  // Tag filters
-  filters: Filters
+  /** optional UI-only field so the page compiles even if unused in calc */
+  strengthClass?: string;
 }
 
-// ---- Computed row shown in table & chart ----
+/** A computed row used by the table & chart */
 export interface ResultRow {
-  cement: Cement
-  dosageUsed: number
-  co2ePerM3_A1A3: number
-  a4Transport: number
-  totalElement: number
-  exposureCompatible: boolean
-  tags: string[]
-  /** +% better vs baseline EF (positive is better) */
-  gwpReductionPct: number
+  cement: Cement;
+
+  /** exposure filter */
+  exposureCompatible: boolean;
+
+  /** dosage used for this cement (kg/m^3) */
+  dosageUsed: number;
+
+  /** A1–A3 per m^3 (kg) */
+  co2ePerM3_A1A3: number;
+
+  /** A4 transport per element (kg) */
+  a4Transport: number;
+
+  /** total element emission A1–A3 (+ A4 if enabled) (kg) */
+  totalElement: number;
+
+  /** EF-based reduction vs baseline OPC EF (percent) */
+  gwpReductionPct: number;
+
+  /** tags used in UI (derived from SCMs or 'OPC') */
+  tags?: string[];
 }
