@@ -12,7 +12,6 @@ import {
   type InputsState,
   type ResultRow,
   type ExposureClass,
-  type StrengthClass,
   type Cement,
 } from '../lib/types'
 import {
@@ -22,7 +21,7 @@ import {
   exportRowsAsCsv,
 } from '../lib/calc'
 
-// ⬇️ Load your dataset directly from /public (no lib/data.ts)
+// ⬇️ Load your dataset directly from /public
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const ALL_CEMENTS: Cement[] = require('../public/data/cements.json') as Cement[]
 
@@ -33,7 +32,7 @@ type SortDir = 'asc' | 'desc'
 type Scope = 'all' | 'compatible' | 'common'
 
 const DEFAULT_INPUTS: InputsState = {
-  strengthClass: 'C25/30' as StrengthClass,
+  strengthClass: 'C25/30' as InputsState['strengthClass'], // ← no StrengthClass import
   exposureClass: 'XC2' as ExposureClass,
   volumeM3: 100,
   distanceKm: 0,
@@ -129,6 +128,7 @@ const Home: NextPage = () => {
     if (scope === 'compatible') {
       arr = arr.filter(r => r.exposureCompatible)
     } else if (scope === 'common') {
+      // your json flag uses is_common (and sometimes common)
       arr = arr.filter(r => Boolean((r.cement as any).is_common || (r.cement as any).common))
     }
     if (search.trim()) {
