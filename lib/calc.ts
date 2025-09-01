@@ -106,6 +106,12 @@ export function computeRows(
       ? ((baselineEF - ef) / baselineEF) * 100
       : 0
 
+    // Tags required by ResultRow: derive from SCMs, fallback to OPC
+    const tags: string[] =
+      Array.isArray((c as any).scms) && (c as any).scms.length
+        ? ((c as any).scms as Array<{ type?: string }>).map(s => (s?.type ?? '').toString()).filter(Boolean)
+        : ['OPC']
+
     const row: ResultRow = {
       cement: c,
       exposureCompatible: isExposureCompatible(c, inputs.exposureClass),
@@ -116,6 +122,7 @@ export function computeRows(
       totalElement,
 
       gwpReductionPct,
+      tags, // <-- satisfy ResultRow type
     }
     return row
   })
