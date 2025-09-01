@@ -431,4 +431,14 @@ body { margin: 0; background: var(--bg); color: var(--text); }
 /* subtle table alignment helpers (optional) */
 .th-center, .td-center { text-align: center; }
 
+/* Ensure cards clip inner highlights / sticky content */
+.card { overflow: hidden; }
+
+/* Table safety: no accidental spilling */
+.table { width: 100%; border-collapse: separate; border-spacing: 0; }
+
+/* Optional: soften the last row bottom edge within the card */
+.table tbody tr:last-child td { border-bottom: none; }
+
+
 
