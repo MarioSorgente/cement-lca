@@ -3,71 +3,81 @@ import { createPortal } from 'react-dom'
 
 type Props = {
   text: string
-  /** Use a portal so the tooltip can't be clipped by sticky headers/overflow (e.g., table headers) */
   portal?: boolean
+  children?: React.ReactNode
 }
 
-export default function Tooltip({ text, portal = false }: Props) {
+export default function Tooltip({ text, portal = false, children }: Props) {
   const [open, setOpen] = useState(false)
-
-  // ----- Inline (legacy) tooltip — uses your existing CSS classes -----
-  if (!portal) {
-    return (
-      <span
-        className="tooltip-wrapper"
-        onMouseEnter={() => setOpen(true)}
-        onMouseLeave={() => setOpen(false)}
-        onFocus={() => setOpen(true)}
-        onBlur={() => setOpen(false)}
-        aria-label={text}
-      >
-        <span className="tooltip-icon">i</span>
-        {open && <span className="tooltip-box tooltip-right">{text}</span>}
-      </span>
-    )
-  }
-
-  // ----- Portal tooltip (for table headers) -----
-  const triggerRef = useRef<HTMLSpanElement>(null)
   const [mounted, setMounted] = useState(false)
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+  const [coords, setCoords] = useState<{x:number;y:number;width:number;height:number}>({x:0,y:0,width:0,height:0})
+  const ref = useRef<HTMLSpanElement | null>(null)
 
-  useEffect(() => setMounted(true), [])
+  // Only true on the client
+  useEffect(() => { setMounted(true) }, [])
 
   useEffect(() => {
-    if (!open) return
-    const update = () => {
-      const el = triggerRef.current
-      if (!el) return
-      const r = el.getBoundingClientRect()
-      setPos({ top: r.top + r.height / 2, left: r.right + 8 })
-    }
-    update()
-    window.addEventListener('scroll', update, true)
-    window.addEventListener('resize', update)
-    return () => {
-      window.removeEventListener('scroll', update, true)
-      window.removeEventListener('resize', update)
-    }
-  }, [open])
+    if (!open || !mounted || !ref.current) return
+    const rect = ref.current.getBoundingClientRect()
+    setCoords({ x: rect.left, y: rect.top, width: rect.width, height: rect.height })
+  }, [open, mounted])
+
+  // Compute left only in the browser
+  const maxLeft = mounted && typeof window !== 'undefined' ? window.innerWidth - 240 : 0
+  const tipLeft = portal ? Math.max(0, Math.min(coords.x, maxLeft)) : 0
+
+  const Tip = (
+    <div
+      className="tip"
+      style={{
+        position: portal ? 'fixed' : 'absolute',
+        top: portal ? coords.y + coords.height + 8 : '100%',
+        left: tipLeft,
+        zIndex: 1000,
+        maxWidth: 220,
+        background: '#111827',
+        color: 'white',
+        padding: '6px 8px',
+        borderRadius: 6,
+        fontSize: 12,
+        boxShadow: '0 6px 16px rgba(0,0,0,.18)',
+        pointerEvents: 'none',
+        transform: portal ? undefined : 'translateY(8px)',
+        whiteSpace: 'normal',
+      }}
+      role="tooltip"
+    >
+      {text}
+    </div>
+  )
+
+  const icon = (
+    <span
+      aria-label="Help"
+      style={{
+        display:'inline-flex',
+        width:18, height:18,
+        borderRadius:999,
+        border:'1px solid #cbd5e1',
+        color:'#111827', background:'#fff',
+        alignItems:'center', justifyContent:'center',
+        lineHeight:1, fontSize:12, fontWeight:700
+      }}
+    >
+      i
+    </span>
+  )
 
   return (
     <span
-      ref={triggerRef}
-      className="tooltip-trigger"
+      ref={ref}
+      className="tip-anchor"
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
-      onFocus={() => setOpen(true)}
-      onBlur={() => setOpen(false)}
-      aria-label={text}
+      style={{ position: 'relative', display: 'inline-flex', alignItems:'center' }}
     >
-      <span className="tooltip-icon">i</span>
-      {mounted && open && pos && createPortal(
-        <div className="tooltip-portal" style={{ top: pos.top, left: pos.left }}>
-          {text}
-        </div>,
-        document.body
-      )}
+      {children ?? icon}
+      {open && (portal && mounted ? createPortal(Tip, document.body) : Tip)}
     </span>
   )
 }
