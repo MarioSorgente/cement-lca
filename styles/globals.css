@@ -101,15 +101,22 @@ body { margin: 0; background: var(--bg); color: var(--text); }
   background: var(--card);
   border: 1px solid #e6eaf0;
   border-radius: var(--radius-lg);
-  padding: 16px 18px; /* slightly tighter */
+  padding: 16px 18px;
   box-shadow: var(--shadow);
   margin-bottom: 14px;
 }
 .card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .card-head h2 { font-size: 18px; font-weight: 700; margin: 0; }
 
-/* Tooltips */
-.tooltip-wrapper { position: relative; display: inline-flex; align-items: center; margin-left: 6px; cursor: help; }
+/* ---------- Tooltips (inline) ---------- */
+.tooltip-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  cursor: help;
+  z-index: 50;
+}
 .tooltip-icon {
   display: inline-block; width:16px; height:16px; line-height:16px; text-align:center;
   border-radius:50%; background:#e2e8f0; color:#334155; font-size:11px; font-weight:700;
@@ -117,23 +124,46 @@ body { margin: 0; background: var(--bg); color: var(--text); }
 .tooltip-box { display: none; }
 .tooltip-wrapper:hover .tooltip-box { display: block; }
 
-/* Wider, horizontal tooltip to the right */
+/* Wider, horizontal tooltip to the right (inline variant) */
 .tooltip-right {
   position: absolute;
   top: 50%;
-  left: 24px;                /* sit to the RIGHT of the “i” */
+  left: 24px;
   transform: translateY(-50%);
-  max-width: 440px;          /* ← more horizontal space */
-  width: max-content;        /* grow horizontally */
-  white-space: normal;       /* wrap instead of stacking tall */
-  line-height: 1.4;          /* compact line height */
+  max-width: 440px;
+  width: max-content;
+  white-space: normal;
+  line-height: 1.4;
   background: #1e293b;
   color: #fff;
   padding: 10px 12px;
   border-radius: 10px;
   font-size: 12.5px;
   box-shadow: 0 10px 28px rgba(16,24,40,0.22);
-  z-index: 30;
+  z-index: 9999;
+}
+
+/* ---------- Tooltips (portal variant) ---------- */
+.tooltip-trigger {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  cursor: help;
+}
+.tooltip-portal {
+  position: fixed;
+  transform: translateY(-50%);
+  background: #1e293b;
+  color: #fff;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  line-height: 1.4;
+  max-width: 440px;
+  box-shadow: 0 10px 28px rgba(16,24,40,0.22);
+  z-index: 100000;
+  pointer-events: none;
 }
 
 /* View banner */
@@ -177,7 +207,7 @@ body { margin: 0; background: var(--bg); color: var(--text); }
 .table tbody tr { background: #fff; border: 1px solid #e5e7eb; }
 .table tbody td { padding: 12px; vertical-align: middle; }
 
-/* Header help icon + sort */
+/* Header sort affordances */
 .th-sort { cursor: pointer; user-select: none; }
 .sort-caret { margin-left: 4px; color: #94a3b8; }
 .th-label { vertical-align: middle; }
@@ -201,9 +231,36 @@ body { margin: 0; background: var(--bg); color: var(--text); }
 .delta-warn  { color: #d97706; font-weight: 600; }
 .delta-bad   { color: #b91c1c; font-weight: 600; }
 
-/* Chart */
-.chart-scroll { overflow-x: auto; overflow-y: hidden; padding-bottom: 8px; }
+/* ---------- Chart ---------- */
+/* Key fix: allow vertical overflow so the custom tooltip never clips */
+.chart-scroll {
+  position: relative;          /* tooltip positioning context */
+  overflow-x: auto;
+  overflow-y: visible;         /* <— was hidden; this caused clipping */
+  padding-bottom: 8px;
+}
 .chart-scroll svg rect[role="button"]:hover { filter: brightness(0.95); }
+
+/* Custom chart tooltip (used by BarChart) */
+.chart-tip {
+  background: #1e293b;
+  color: #fff;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  line-height: 1.4;
+  max-width: 440px;
+  box-shadow: 0 10px 28px rgba(16,24,40,0.22);
+  border: 1px solid rgba(148,163,184,0.25);
+  z-index: 9999;               /* ensure above SVG */
+}
+.chart-tip__title { font-weight: 700; margin-bottom: 6px; color: #e5e7eb; }
+.chart-tip__rows { display: grid; gap: 6px; }
+.chart-tip__row  { display: grid; grid-template-columns: 10px 1fr auto auto; align-items: center; gap: 8px; }
+.chart-tip__dot  { width: 10px; height: 10px; border-radius: 9999px; }
+.chart-tip__name  { color: #cbd5e1; }
+.chart-tip__value { font-weight: 700; color: #ffffff; }
+.chart-tip__unit  { margin-left: 4px; color: #cbd5e1; }
 
 /* Details card */
 .details-card {
@@ -211,7 +268,7 @@ body { margin: 0; background: var(--bg); color: var(--text); }
   border-radius: 12px; padding: 12px; display: grid; gap: 10px;
 }
 .details-title { font-weight: 700; font-size: 16px; color: #0f172a; display: flex; align-items: center; }
-.details-grid { display: grid; grid-template-columns: repeat(3, minmax(160px, 1fr)); gap: 12px; }
+.details-grid  { display: grid; grid-template-columns: repeat(3, minmax(160px, 1fr)); gap: 12px; }
 .details-label { font-size: 12px; color: var(--muted); }
 .details-value { font-size: 14px; color: #0f172a; font-weight: 600; }
 .details-notes { font-size: 12px; color: #475569; }
@@ -246,130 +303,3 @@ body { margin: 0; background: var(--bg); color: var(--text); }
   cursor: not-allowed;
   border-color: #e5e7eb;
 }
-
-/* Ensure tooltips always appear above table headers */
-.tooltip-wrapper {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  margin-left: 6px;
-  cursor: help;
-  z-index: 50; /* ensures wrapper is above table cell */
-}
-
-.tooltip-box {
-  display: none;
-  position: absolute;
-  top: 50%;
-  left: 22px;
-  transform: translateY(-50%);
-  max-width: 320px;
-  white-space: normal;
-  background: #1e293b;
-  color: #fff;
-  padding: 8px 10px;
-  border-radius: 8px;
-  font-size: 12px;
-  box-shadow: 0 8px 24px rgba(16,24,40,0.2);
-  z-index: 9999; /* put tooltip itself above everything */
-}
-
-.tooltip-wrapper:hover .tooltip-box {
-  display: block;
-}
-
-/* Portal-based tooltips (used in table headers / sticky areas) */
-.tooltip-trigger {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  margin-left: 6px;
-  cursor: help;
-}
-.tooltip-portal {
-  position: fixed;
-  transform: translateY(-50%);
-  background: #1e293b;
-  color: #fff;
-  padding: 10px 12px;
-  border-radius: 10px;
-  font-size: 12.5px;
-  line-height: 1.4;
-  max-width: 440px;
-  box-shadow: 0 10px 28px rgba(16,24,40,0.22);
-  z-index: 100000;
-  pointer-events: none;
-}
-
-/* Recharts custom tooltip content */
-.chart-tip {
-  background: #1e293b;
-  color: #fff;
-  padding: 10px 12px;
-  border-radius: 10px;
-  font-size: 12.5px;
-  line-height: 1.4;
-  max-width: 440px;
-  box-shadow: 0 10px 28px rgba(16,24,40,0.22);
-  border: 1px solid rgba(148,163,184,0.25);
-}
-
-.chart-tip__title {
-  font-weight: 700;
-  margin-bottom: 6px;
-  color: #e5e7eb;
-}
-
-.chart-tip__rows {
-  display: grid;
-  gap: 6px;
-}
-
-.chart-tip__row {
-  display: grid;
-  grid-template-columns: 10px 1fr auto auto;
-  align-items: center;
-  gap: 8px;
-}
-
-.chart-tip__dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 9999px;
-}
-
-.chart-tip__name {
-  color: #cbd5e1;
-}
-
-.chart-tip__value {
-  font-weight: 700;
-  color: #ffffff;
-}
-
-.chart-tip__unit {
-  margin-left: 4px;
-  color: #cbd5e1;
-}
-
-.chart-tip {
-  background: #1e293b;
-  color: #fff;
-  padding: 10px 12px;
-  border-radius: 10px;
-  font-size: 12.5px;
-  line-height: 1.4;
-  max-width: 440px;
-  box-shadow: 0 10px 28px rgba(16,24,40,0.22);
-  border: 1px solid rgba(148,163,184,0.25);
-}
-.chart-tip__title { font-weight: 700; margin-bottom: 6px; color: #e5e7eb; }
-.chart-tip__rows { display: grid; gap: 6px; }
-.chart-tip__row { display: grid; grid-template-columns: 10px 1fr auto auto; align-items: center; gap: 8px; }
-.chart-tip__dot { width: 10px; height: 10px; border-radius: 9999px; }
-.chart-tip__name { color: #cbd5e1; }
-.chart-tip__value { font-weight: 700; color: #ffffff; }
-.chart-tip__unit { margin-left: 4px; color: #cbd5e1; }
-
-
-
