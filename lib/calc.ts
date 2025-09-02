@@ -10,13 +10,6 @@ export function formatNumber(n: number): string {
 }
 
 /**
- * Transport EF for A4 (kg CO2e per tonne-km).
- * If you already have a project-specific EF, replace this value
- * and keep the math below identical.
- */
-const TRANSPORT_EF_TK = 0.1 // kg CO2e / (t·km)
-
-/**
  * Compute whether a cement is compatible with the requested exposure class.
  * If data is missing, we treat it as compatible (do-no-harm).
  */
@@ -41,6 +34,18 @@ function resolveDosage(c: Cement, inputs: InputsState, perCement?: Record<string
 }
 
 /**
+ * NEW: Cement-only A4 computation.
+ * A4cement (kg CO₂) = distance_km × transport_EF_(kg CO₂ / kg·km) × (dosage_kg/m³ × volume_m³)
+ */
+function computeA4cement(cement: Cement, dosageKgPerM3: number, inputs: InputsState): number {
+  if (!inputs.includeA4) return 0
+  const distKm = Math.max(0, Number(inputs.distanceKm ?? 0))
+  const volM3  = Math.max(0, Number(inputs.volumeM3 ?? 0))
+  const efKgPerKgKm = Number(cement.transport_ef_kg_per_kg_km ?? 0) // kg CO2 / (kg·km)
+  return distKm * efKgPerKgKm * (dosageKgPerM3 * volM3)
+}
+
+/**
  * Compute A1–A3 per m³ and A4 per element (kg),
  * then total CO2e per element (kg).
  */
@@ -52,14 +57,10 @@ function elementImpacts(
   const efA1A3 = Number(cement.co2e_per_kg_binder_A1A3 ?? 0) // kg/kg
   const a1a3PerM3 = dosageKgPerM3 * efA1A3 // kg/m3
 
+  // NEW: cement-only A4 (no tonne conversion, no m3·km fallback)
+  const a4 = computeA4cement(cement, dosageKgPerM3, inputs) // kg
+
   const vol = Math.max(0, Number(inputs.volumeM3 ?? 0)) // m3
-  const distanceKm = Math.max(0, Number(inputs.distanceKm ?? 0))
-  const includeA4 = !!inputs.includeA4
-
-  // mass to transport = dosage (kg/m3) * volume (m3) => kg, then convert to tonnes
-  const tonnes = (dosageKgPerM3 * vol) / 1000
-  const a4 = includeA4 ? tonnes * distanceKm * TRANSPORT_EF_TK : 0 // kg
-
   const totalElement = a1a3PerM3 * vol + a4
   return { a1a3PerM3, a4, totalElement }
 }
