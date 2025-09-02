@@ -73,14 +73,14 @@ export default function Inputs({ inputs, onChange }: Props) {
 
       {/* Second row: Transport & A4 (left)  |  Dosage box (right) */}
       <div className="grid" style={{ gridTemplateColumns:'1fr 1fr', gap: 16 }}>
-        {/* Transport & A4 */}
-        <div>
-          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:6 }}>
+        {/* Transport & A4 — redesigned, boxed like Dosage */}
+        <div className="card" style={{ margin: 0, padding: 12 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
             <div style={{ fontWeight:600 }}>Transport & A4</div>
-            <Tooltip text="Transport to construction site, adds A4 when enabled." />
+            <Tooltip text="Transport to the construction site. When enabled, A4 is added using distance × EF × (dosage × volume)." />
           </div>
 
-          <div className="grid" style={{ gridTemplateColumns: 'auto 1fr', gap: 8, alignItems:'center' }}>
+          <div className="radio-row" style={{ marginBottom: 8 }}>
             <label className="small" style={{ display:'inline-flex', alignItems:'center', gap: 8 }}>
               <input
                 type="checkbox"
@@ -89,16 +89,45 @@ export default function Inputs({ inputs, onChange }: Props) {
               />
               Include A4 transport
             </label>
+          </div>
 
-            <input
-              className="input"
-              type="text"
-              inputMode="decimal"
-              placeholder="0"
-              value={distDraft}
-              onChange={(e) => setDistDraft(e.target.value)}
-              onBlur={() => onChange({ ...inputs, distanceKm: numberFromDraft(distDraft, inputs.distanceKm) })}
-            />
+          <div className="grid" style={{ gridTemplateColumns:'1fr', gap: 8 }}>
+            <div>
+              <label className="label" style={{ marginBottom: 6 }}>
+                Distance to site <Tooltip text="Enter one-way transport distance for cement logistics." />
+              </label>
+              <div style={{ position:'relative' }}>
+                <input
+                  className="input"
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="Distance in km"
+                  value={distDraft}
+                  disabled={!inputs.includeA4}
+                  style={{
+                    paddingRight: 44,
+                    ...(inputs.includeA4 ? {} : { background:'#f1f5f9', color:'#94a3b8', cursor:'not-allowed' })
+                  }}
+                  onChange={(e) => setDistDraft(e.target.value)}
+                  onBlur={() => onChange({ ...inputs, distanceKm: numberFromDraft(distDraft, inputs.distanceKm) })}
+                />
+                {/* suffix hint */}
+                <span
+                  aria-hidden
+                  style={{
+                    position:'absolute',
+                    right:10,
+                    top:'50%',
+                    transform:'translateY(-50%)',
+                    color:'var(--muted)',
+                    fontSize:13,
+                    fontWeight:600
+                  }}
+                >
+                  km
+                </span>
+              </div>
+            </div>
           </div>
 
           <div className="small" style={{ color:'var(--muted)', marginTop: 6 }}>
