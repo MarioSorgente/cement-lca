@@ -1,4 +1,3 @@
-// components/ComparePanel.tsx
 import React, { useMemo, useState } from 'react'
 import { InputsState, ResultRow } from '../lib/types'
 import { formatNumber } from '../lib/calc'
@@ -11,14 +10,17 @@ type Props = {
   comparedIds: string[]
   rowsById: Record<string, ResultRow>
   inputs: InputsState
-  /** NEW: allow adding from panel */
+
+  /** Allow adding from the panel (already present) */
   onAdd: (id: string) => void
-  /** NEW: list of all visible cements to pick from */
   catalog: CatalogItem[]
+
+  /** NEW: remove a single cement from comparison */
+  onRemove: (id: string) => void
 }
 
 export default function ComparePanel({
-  open, onClose, comparedIds, rowsById, inputs, onAdd, catalog
+  open, onClose, comparedIds, rowsById, inputs, onAdd, catalog, onRemove
 }: Props) {
   const baseRows = comparedIds.map(id => rowsById[id]).filter(Boolean)
 
@@ -44,10 +46,11 @@ export default function ComparePanel({
       const ef = Number(r.cement.co2e_per_kg_binder_A1A3 ?? 0)
       const a1a3 = dosage * ef
 
-      // NEW: cement-only A4: distance × EF(kg/kg·km) × (dosage × volume)
+      // Cement-only A4: distance × EF(kg CO2/kg·km) × (dosage × volume)
       const dist = Number(inputs.distanceKm ?? 0)
       const vol  = Number(inputs.volumeM3 ?? 0)
-      const efKgPerKgKm = Number(r.cement.transport_ef_kg_per_kg_km ?? 0)
+      // In your dataset this may be undefined; then A4=0 (ok).
+      const efKgPerKgKm = Number((r.cement as any).transport_ef_kg_per_kg_km ?? 0)
       const a4 = inputs.includeA4 ? dist * efKgPerKgKm * (dosage * vol) : 0
 
       const total = a1a3 * vol + a4
@@ -114,11 +117,32 @@ export default function ComparePanel({
 
           {rows.map(x => (
             <div key={x.id} className="cmp-drawer-row">
-              <div className="cmp-drawer-title" style={{ marginBottom: 6 }}>
+              <div
+                className="cmp-drawer-title"
+                style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: 6 }}
+              >
                 <div className="name">
                   {x.name}
-                  {x.id === bestId && <span className="pill pill-deepgreen" style={{ marginLeft: 8 }}>Most sustainable</span>}
+                  {x.id === bestId && (
+                    <span className="pill pill-deepgreen" style={{ marginLeft: 8 }}>
+                      Most sustainable
+                    </span>
+                  )}
                 </div>
+
+                {/* NEW: remove button */}
+                <button
+                  className="btn ghost"
+                  aria-label={`Remove ${x.name} from comparison`}
+                  title="Remove"
+                  onClick={() => onRemove(x.id)}
+                  style={{
+                    width: 28, height: 28, borderRadius: 999,
+                    display:'inline-flex', alignItems:'center', justifyContent:'center', padding:0
+                  }}
+                >
+                  ✕
+                </button>
               </div>
 
               {/* Metric box row */}
