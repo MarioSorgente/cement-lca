@@ -320,3 +320,10 @@ body { margin: 0; background: var(--bg); color: var(--text); }
 .collapse-btn .chev.open{ transform: rotate(0deg); }
 .collapse-text{ color:#334155; }
 
+
+/* Remove old page-size dropdown sitting in the 3rd slot of the toolbar row */
+.toolbar-grid > *:nth-child(3) { display: none !important; }
+/* Repack toolbar to 3 columns: search | view | export */
+.toolbar-grid { grid-template-columns: 1fr 200px 120px; }
+
+
