@@ -326,4 +326,12 @@ body { margin: 0; background: var(--bg); color: var(--text); }
 /* Repack toolbar to 3 columns: search | view | export */
 .toolbar-grid { grid-template-columns: 1fr 200px 120px; }
 
+.metric-box {
+  display:inline-flex; align-items:center; gap:8px;
+  padding:10px 12px; border:1px solid var(--border-strong);
+  background:#fff; border-radius:12px; box-shadow: var(--shadow);
+  font-weight:700; color:var(--text);
+}
+.metric-sub { font-size:12px; color:var(--muted); font-weight:600; margin-left:6px; }
+
 
