@@ -49,7 +49,6 @@ export default function ComparePanel({
       // Cement-only A4: distance × EF(kg CO2/kg·km) × (dosage × volume)
       const dist = Number(inputs.distanceKm ?? 0)
       const vol  = Number(inputs.volumeM3 ?? 0)
-      // In your dataset this may be undefined; then A4=0 (ok).
       const efKgPerKgKm = Number((r.cement as any).transport_ef_kg_per_kg_km ?? 0)
       const a4 = inputs.includeA4 ? dist * efKgPerKgKm * (dosage * vol) : 0
 
@@ -130,7 +129,7 @@ export default function ComparePanel({
                   )}
                 </div>
 
-                {/* NEW: remove button */}
+                {/* Remove */}
                 <button
                   className="btn ghost"
                   aria-label={`Remove ${x.name} from comparison`}
