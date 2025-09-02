@@ -24,6 +24,11 @@ export interface Cement {
   density_kg_m3?: number;
   default_dosage_kg_per_m3?: number;
   co2e_per_kg_binder_A1A3: number;           // EF
+
+  /** NEW: cement-mass transport EF used for A4 (kg CO2 per kg·km) */
+  transport_ef_kg_per_kg_km?: number;
+
+  /** (legacy, not used by A4 anymore; kept for compatibility) */
   transport_ef_kg_per_m3_km?: number;
 
   /** exposure / scope */
