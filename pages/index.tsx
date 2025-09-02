@@ -254,6 +254,8 @@ const Home: NextPage = () => {
         inputs={inputs}
         onAdd={addToCompare}
         catalog={catalog}
+        /** NEW: allow removing a single cement from the drawer */
+        onRemove={(id) => setComparedIds(prev => prev.filter(x => x !== id))}
       />
 
       <footer className="footer">
