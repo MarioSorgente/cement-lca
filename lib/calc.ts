@@ -4,10 +4,17 @@ import { InputsState, ResultRow, Cement } from './types'
 /**
  * FORMATTERS
  */
-export function formatNumber(n: number): string {
-  if (n === null || n === undefined || Number.isNaN(n)) return '0'
-  return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(n)
+// lib/calc.ts
+export function formatNumberFixed(n: number, digits = 2): string {
+  if (n === null || n === undefined || Number.isNaN(n)) {
+    return (0).toFixed(digits);
+  }
+  return new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  }).format(n);
 }
+
 
 /**
  * Compute whether a cement is compatible with the requested exposure class.
