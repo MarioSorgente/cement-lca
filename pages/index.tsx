@@ -16,27 +16,19 @@ import ComparePanel from '../components/ComparePanel'
 // Utils
 import { downloadCSV } from '../lib/download'
 
-// ---------- helpers ----------
-function computeA4(cement: Cement, dosageUsedKgPerM3: number, inputs: InputsState): number {
+// ---------- helpers (A4 cement-only) ----------
+function computeA4cement(cement: Cement, dosageUsedKgPerM3: number, inputs: InputsState): number {
   if (!inputs.includeA4) return 0
-  const d = inputs.distanceKm ?? 0
-  const V = inputs.volumeM3 ?? 0
-
-  // Prefer cement-mass EF if provided (kg CO2 per kg·km)
-  if (cement.transport_ef_kg_per_kg_km != null) {
-    return cement.transport_ef_kg_per_kg_km * d * (dosageUsedKgPerM3 * V)
-  }
-
-  // Fallback: ready-mix logistics EF (kg CO2 per m3·km)
-  const ef_m3km = cement.transport_ef_kg_per_m3_km ?? 0
-  return ef_m3km * d * V
+  const dist = inputs.distanceKm ?? 0
+  const vol = inputs.volumeM3 ?? 0
+  const ef = cement.transport_ef_kg_per_kg_km ?? 0 // kg CO2 per (kg·km)
+  // A4cement (kg) = distance_km × EF_(kg CO2/kg·km) × (dosage_kg/m3 × volume_m3)
+  return dist * ef * (dosageUsedKgPerM3 * vol)
 }
 
 function tagsFrom(c: Cement): string[] {
-  // Prefer cement.tags if present (extended JSON), else derive
   const anyC = c as any
   if (Array.isArray(anyC.tags) && anyC.tags.length) return anyC.tags as string[]
-
   const scms = c.scms ?? []
   if (scms.length === 0) return ['OPC']
   const codes = new Set(scms.map(s => (s.type || '').toUpperCase()))
@@ -51,7 +43,6 @@ function tagsFrom(c: Cement): string[] {
 }
 
 function isOPC(c: Cement) {
-  // Treat as OPC if no SCMs or the type starts with CEM I
   return (c.scms?.length ?? 0) === 0 || /^CEM\s*I\b/i.test(c.cement_type)
 }
 
@@ -66,7 +57,6 @@ function rowsFromCements(
   baselineLabel?: string
   bestId?: string
 } {
-  // Baseline EF = worst OPC binder EF
   const opc = cements.filter(isOPC)
   const worstOPC = opc.length
     ? opc.reduce((m, c) =>
@@ -90,7 +80,10 @@ function rowsFromCements(
         : inputs.globalDosage
 
     const co2ePerM3_A1A3 = (c.co2e_per_kg_binder_A1A3 ?? 0) * (dosageUsed ?? 0)
-    const a4Transport = computeA4(c, dosageUsed ?? 0, inputs)
+
+    // NEW: cement-only A4
+    const a4Transport = computeA4cement(c, dosageUsed ?? 0, inputs)
+
     const totalElement = co2ePerM3_A1A3 * (inputs.volumeM3 ?? 0) + (inputs.includeA4 ? a4Transport : 0)
 
     const gwpReductionPct =
@@ -119,40 +112,33 @@ function rowsFromCements(
 
 // ---------- page ----------
 export default function Home() {
-  // Raw dataset
   const cements = useMemo(() => (cementsJson as Cement[]), [])
 
-  // Inputs (match your Inputs.tsx layout)
   const [inputs, setInputs] = useState<InputsState>({
     exposureClass: 'XC2',
     volumeM3: 100,
     distanceKm: 0,
     includeA4: true,
-    dosageMode: 'global',     // 'global' | 'perCement'
+    dosageMode: 'global',
     globalDosage: 320,
     concreteStrength: 'C25/30',
   })
 
-  // Per-cement overrides (used when dosageMode === 'perCement' and in Compare drawer)
   const [perDosage, setPerDosage] = useState<Record<string, number>>({})
 
-  // Table/view states
   const [search, setSearch] = useState('')
   const [view, setView] = useState<'all' | 'compatible'>('all')
   const [sortKey, setSortKey] = useState<'total' | 'a1a3' | 'ef' | 'clinker' | 'dosage'>('total')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
 
-  // Compare
   const [cmpOpen, setCmpOpen] = useState(false)
   const [comparedIds, setComparedIds] = useState<Set<string>>(new Set())
 
-  // Computed rows + baseline
   const { rows, baselineId, baselineEf, baselineLabel, bestId } = useMemo(
     () => rowsFromCements(cements, inputs, perDosage),
     [cements, inputs, perDosage]
   )
 
-  // Handlers
   const onInputs = useCallback((patch: Partial<InputsState>) => {
     setInputs(prev => ({ ...prev, ...patch }))
   }, [])
@@ -166,14 +152,11 @@ export default function Home() {
     })
   }
   const clearCompared = () => setComparedIds(new Set())
-
   const updatePerCementDosage = (id: string, value: number) => {
     setPerDosage(prev => ({ ...prev, [id]: value }))
   }
-
   const exportCsv = () => downloadCSV(rows, inputs)
 
-  // Compare items (for the tray badge)
   const comparedItems = useMemo(
     () => Array.from(comparedIds).map(id => {
       const r = rows.find(x => x.cement.id === id)
@@ -182,14 +165,9 @@ export default function Home() {
     [comparedIds, rows]
   )
 
-  // Sorting click: toggle asc/desc when same key
   const onSortChange = (key: typeof sortKey) => {
-    if (key === sortKey) {
-      setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))
-    } else {
-      setSortKey(key)
-      setSortDir('asc')
-    }
+    if (key === sortKey) setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))
+    else { setSortKey(key); setSortDir('asc') }
   }
 
   return (
@@ -201,54 +179,34 @@ export default function Home() {
       <div className="container">
         <h1 className="title">
           <span>Cement LCA Comparison</span>
-          {/* If you copied the favicon into /public */}
-          <img
-            src="/favicon-32x32.png?v=2"
-            alt=""
-            width={22}
-            height={22}
-            loading="lazy"
-            decoding="async"
-            aria-hidden="true"
-            style={{ marginLeft: 8, verticalAlign: 'text-bottom' }}
-          />
+          <img src="/favicon-32x32.png?v=2" alt="" width={22} height={22}
+            loading="lazy" decoding="async" aria-hidden="true"
+            style={{ marginLeft: 8, verticalAlign: 'text-bottom' }} />
         </h1>
 
-        {/* Inputs card */}
         <div className="card">
-          <Inputs
-            state={inputs}
-            onChange={onInputs}
-          />
+          <Inputs state={inputs} onChange={onInputs} />
         </div>
 
-        {/* Results table */}
         <ResultsTable
           rows={rows}
-          // sorting
           sortKey={sortKey}
           sortDir={sortDir}
           onSortChange={onSortChange}
-          // view/search
           view={view}
           onViewChange={setView}
           search={search}
           onSearchChange={setSearch}
-          // compare
           compared={comparedIds}
           onToggleCompare={toggleCompare}
-          // CSV
           onExportCsv={exportCsv}
-          // baseline
           baselineId={baselineId}
           baselineEf={baselineEf}
           baselineLabel={baselineLabel}
-          // legacy props kept but unused inside ResultsTable (safe no-ops)
           pageSize={999}
           onPageSize={() => {}}
         />
 
-        {/* Chart */}
         <BarChart
           rows={rows}
           bestId={bestId}
@@ -258,7 +216,6 @@ export default function Home() {
         />
       </div>
 
-      {/* Compare tray + drawer (always visible, even when 0 items) */}
       <CompareTray
         items={comparedItems}
         onOpen={() => setCmpOpen(true)}
