@@ -103,7 +103,7 @@ export default function ResultsTable(props: Props) {
     ef:        'Embodied carbon of binder A1–A3 (kg CO₂ per kg).',
     dosage:    'Binder dosage per m³ of concrete (kg/m³).',
     a1a3:      'A1–A3 per m³ = dosage × EF.',
-    a4:        'A4 for the element = distance × transport EF × volume.',
+    a4:        'A4cement = distance × transport EF (kg CO₂/kg·km) × dosage × volume.',
     total:     'A1–A3 per element + (optional) A4.',
     reduction: 'Reduction vs worst OPC EF (baseline).',
   } as const
