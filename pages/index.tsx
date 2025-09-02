@@ -20,7 +20,6 @@ import { downloadCSV } from '../lib/download'
 
 import cementsData from '../public/data/cements.json'
 
-
 // ---------- Helpers ----------
 function isOPC(c: Cement): boolean {
   return (c.scms?.length ?? 0) === 0 || (c.cement_type || '').toUpperCase().startsWith('CEM I')
@@ -166,6 +165,10 @@ const Home: NextPage = () => {
     setComparedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
   }, [])
 
+  const addToCompare = useCallback((id: string) => {
+    setComparedIds(prev => (prev.includes(id) ? prev : [...prev, id]))
+  }, [])
+
   const [cmpOpen, setCmpOpen] = useState(false)
 
   // Export
@@ -178,10 +181,16 @@ const Home: NextPage = () => {
       : undefined
   }, [rowsSorted])
 
+  // Catalog for add-from-panel (use currently visible rows)
+  const catalog = useMemo(
+    () => rowsSorted.map(r => ({ id: r.cement.id, label: r.cement.cement_type })),
+    [rowsSorted]
+  )
+
   return (
     <div className="container">
       <h1 className="title">Cement LCA Comparison
-      <img src="/favicon-android-chrome-192x192.png" alt="" style={{ width: 66, height: 66, marginLeft: 8, verticalAlign: 'middle' }} />
+        <img src="/favicon-32x32.png" alt="" style={{ width: 22, height: 22, marginLeft: 8, verticalAlign: 'middle' }} />
       </h1>
 
       <Inputs
@@ -190,6 +199,11 @@ const Home: NextPage = () => {
         perCementDosage={perCementDosage}
         onPerCementDosageChange={handlePerCementDosageChange}
       />
+
+      {/* Header-level Compare button (always active) */}
+      <div style={{ display:'flex', justifyContent:'flex-start', margin: '6px 0 4px 6px' }}>
+        <button className="btn" onClick={() => setCmpOpen(true)}>Compare</button>
+      </div>
 
       <ResultsTable
         rows={rowsSorted}
@@ -238,6 +252,8 @@ const Home: NextPage = () => {
         comparedIds={comparedIds}
         rowsById={rowsById}
         inputs={inputs}
+        onAdd={addToCompare}
+        catalog={catalog}
       />
 
       <footer className="footer">
