@@ -23,7 +23,15 @@ export interface Cement {
   scms?: Scm[];                              // empty for OPC
   density_kg_m3?: number;
   default_dosage_kg_per_m3?: number;
-  co2e_per_kg_binder_A1A3: number;           // EF
+  co2e_per_kg_binder_A1A3: number;           // EF (kg CO2 per kg cement)
+  /**
+   * A4 transport EF — **cement mass based**.
+   * Units: kg CO2 per (kg · km).
+   * We now compute A4 solely from this field: A4 = dist_km * EF_kgPerKgKm * (dosage_kg_per_m3 * volume_m3)
+   */
+  transport_ef_kg_per_kg_km?: number;
+
+  /** (legacy, not used anymore but kept for backward compatibility) */
   transport_ef_kg_per_m3_km?: number;
 
   /** exposure / scope */
@@ -51,9 +59,9 @@ export interface InputsState {
   dosageMode: 'global' | 'perCement';
   globalDosage: number;
 
-  /** UI-only fields (safe to be optional; calc does not depend on them) */
+  /** UI-only fields */
   concreteStrength?: string;   // e.g. 'C25/30'
-  strengthClass?: string;      // kept for compatibility if something still reads this
+  strengthClass?: string;
 }
 
 /** A computed row used by the table & chart */
@@ -69,7 +77,7 @@ export interface ResultRow {
   /** A1–A3 per m^3 (kg) */
   co2ePerM3_A1A3: number;
 
-  /** A4 transport per element (kg) */
+  /** A4 transport per element (kg) — now cement-only transport */
   a4Transport: number;
 
   /** total element emission A1–A3 (+ A4 if enabled) (kg) */
