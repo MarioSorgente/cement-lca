@@ -46,11 +46,17 @@ export default function ComparePanel({
       const ef = Number(r.cement.co2e_per_kg_binder_A1A3 ?? 0)
       const a1a3 = dosage * ef
 
-      // Cement-only A4: distance × EF(kg CO2/kg·km) × (dosage × volume)
-      const dist = Number(inputs.distanceKm ?? 0)
-      const vol  = Number(inputs.volumeM3 ?? 0)
-      const efKgPerKgKm = Number((r.cement as any).transport_ef_kg_per_kg_km ?? 0)
-      const a4 = inputs.includeA4 ? dist * efKgPerKgKm * (dosage * vol) : 0
+  // Cement-only A4: distance × EF(kg CO₂ / kg·km) × (dosage × volume)
+  const dist = Number(inputs.distanceKm ?? 0);
+  const vol  = Number(inputs.volumeM3 ?? 0);
+
+  const efKgPerKgKm = Number(
+    (r.cement as any).transport_ef_kg_per_kg_km ??
+    (((r.cement as any).transport_ef_kg_per_m3_km ?? 0) / Math.max(dosage || 0, 1e-9))
+  );
+
+  const a4 = inputs.includeA4 ? dist * efKgPerKgKm * (dosage * vol) : 0;
+
 
       const total = a1a3 * vol + a4
       return { id: r.cement.id, name: r.cement.cement_type, dosage, a1a3, a4, total }
