@@ -1,4 +1,3 @@
-// components/CompareFab.tsx
 import React from 'react'
 
 type Item = { id: string; label: string }
@@ -9,15 +8,22 @@ type Props = {
   onClear?: () => void
 }
 
-export default function CompareFab({ items, onOpen, onClear }: Props) {
-  if (!items || items.length === 0) return null
+export default function CompareFab({ items = [], onOpen, onClear }: Props) {
+  const count = items?.length ?? 0
+
   return (
     <div className="cmp-fab">
-      <button className="cmp-fab-btn" onClick={onOpen} aria-label="Open comparison">
-        <span className="cmp-fab-dot">{items.length}</span>
+      <button
+        className="cmp-fab-btn"
+        onClick={onOpen}
+        aria-label="Open comparison"
+        // always enabled so users can add from the panel
+      >
+        {count > 0 && <span className="cmp-fab-dot">{count}</span>}
         Compare
       </button>
-      {onClear && (
+
+      {count > 0 && onClear && (
         <button className="cmp-fab-clear" onClick={onClear} aria-label="Clear comparison">
           Clear
         </button>
