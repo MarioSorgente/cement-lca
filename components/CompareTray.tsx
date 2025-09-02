@@ -1,26 +1,45 @@
+// components/CompareTray.tsx
 import React from 'react'
 
-type ItemLite = { id: string; label: string }
+type Item = { id: string; label: string }
 
 type Props = {
-  items: ItemLite[]
+  items: Item[]
+  max: number
   onOpen: () => void
-  onClear?: () => void
+  onRemove: (id: string) => void
+  catalog: Item[]
+  onReplace: (oldId: string, newId: string) => void
 }
 
-export default function CompareTray({ items, onOpen, onClear }: Props) {
-  const count = items.length
+export default function CompareTray({
+  items, max, onOpen, onRemove, catalog, onReplace
+}: Props) {
   return (
-    <div className="cmp-fab" aria-live="polite">
-      <button className="cmp-fab-btn" onClick={onOpen} aria-label="Open compare panel">
-        <span className="cmp-fab-dot">{count}</span>
-        <span>Compare</span>
-      </button>
-      {!!count && onClear && (
-        <button className="cmp-fab-clear" onClick={onClear} aria-label="Clear compare selection">
-          Clear
+    <div className="cmp-tray">
+      <div className="cmp-tray-items">
+        {items.map(x => (
+          <span key={x.id} className="chip">
+            {x.label}
+            <button
+              className="chip-x"
+              onClick={() => onRemove(x.id)}
+              aria-label={`Remove ${x.label}`}
+            >
+              ×
+            </button>
+          </span>
+        ))}
+      </div>
+
+      <div className="cmp-tray-right">
+        <div className="small" style={{ marginRight: 8 }}>
+          {items.length}/{max} selected
+        </div>
+        <button className="btn" onClick={onOpen} disabled={items.length < 2}>
+          Compare
         </button>
-      )}
+      </div>
     </div>
   )
 }
