@@ -35,13 +35,21 @@ function buildRow(c: Cement, inputs: InputsState, perCementDosage: Record<string
   const co2ePerM3_A1A3 = dosageUsed * ef
 
   // --- A4 (mass-based) ---
-  // A4cement (kg CO₂) = distance_km × transport_EF_(kg CO₂ / kg·km) × (dosage_kg/m³ × volume_m³)
-  const distKm = Number(inputs.distanceKm ?? 0)
-  const volM3 = Number(inputs.volumeM3 ?? 0)
-  const efKgPerKgKm = Number((c as any).transport_ef_kg_per_kg_km ?? 0) // from dataset
-  const a4Transport = inputs.includeA4 ? distKm * efKgPerKgKm * (dosageUsed * volM3) : 0
+  // --- A4cement: distance × EF(kg CO₂ / kg·km) × (dosage × volume)
+  const distanceKm = Math.max(0, Number(inputs.distanceKm ?? 0));
+  const volM3 = Math.max(0, Number(inputs.volumeM3 ?? 0));
 
-  const totalElement = co2ePerM3_A1A3 * volM3 + a4Transport
+  // Prefer mass-based EF; fallback to old m³·km EF divided by dosage (keeps results consistent)
+  const efKgPerKgKm =
+    (c as any).transport_ef_kg_per_kg_km ??
+    (((c as any).transport_ef_kg_per_m3_km ?? 0) / Math.max(dosageUsed || 0, 1e-9));
+
+  const a4Transport = inputs.includeA4
+    ? distanceKm * efKgPerKgKm * (dosageUsed * volM3)
+    : 0;
+
+  const totalElement = co2ePerM3_A1A3 * volM3 + a4Transport;
+
 
   const exposureCompatible =
     Array.isArray(c.compatible_exposure_classes) &&
