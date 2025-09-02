@@ -7,7 +7,7 @@ import ResultsTable from '../components/ResultsTable'
 import BarChart from '../components/BarChart'
 import ComparePanel from '../components/ComparePanel'
 import CompareFab from '../components/CompareFab'
-import DistanceSensitivityChart from '../components/DistanceSensitivityChart'
+
 
 
 import {
@@ -263,17 +263,6 @@ const Home: NextPage = () => {
     baselineLabel={baselineLabel}
   />
 </div>
-
-{/* NEW: Distance sensitivity chart */}
-<div className="card" style={{ marginTop: 12 }}>
-  <DistanceSensitivityChart
-    rows={rowsSorted}
-    inputs={inputs}
-    comparedIds={comparedIds}
-    // maxKm={300} // optional knob
-  />
-</div>
-
 
       <CompareFab
         items={comparedItems}
