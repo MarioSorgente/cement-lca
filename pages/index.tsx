@@ -34,11 +34,14 @@ function buildRow(c: Cement, inputs: InputsState, perCementDosage: Record<string
   const ef = Number(c.co2e_per_kg_binder_A1A3 ?? 0)
   const co2ePerM3_A1A3 = dosageUsed * ef
 
-  const distanceKm = Number(inputs.distanceKm ?? 0)
-  const a4Ef = Number(c.transport_ef_kg_per_m3_km ?? 0) * (inputs.volumeM3 ?? 0)
-  const a4Transport = inputs.includeA4 ? distanceKm * a4Ef : 0
+  // --- A4 (mass-based) ---
+  // A4cement (kg CO₂) = distance_km × transport_EF_(kg CO₂ / kg·km) × (dosage_kg/m³ × volume_m³)
+  const distKm = Number(inputs.distanceKm ?? 0)
+  const volM3 = Number(inputs.volumeM3 ?? 0)
+  const efKgPerKgKm = Number((c as any).transport_ef_kg_per_kg_km ?? 0) // from dataset
+  const a4Transport = inputs.includeA4 ? distKm * efKgPerKgKm * (dosageUsed * volM3) : 0
 
-  const totalElement = co2ePerM3_A1A3 * (inputs.volumeM3 ?? 0) + a4Transport
+  const totalElement = co2ePerM3_A1A3 * volM3 + a4Transport
 
   const exposureCompatible =
     Array.isArray(c.compatible_exposure_classes) &&
