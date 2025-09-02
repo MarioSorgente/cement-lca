@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { ResultRow } from '../lib/types'
 import { formatNumber } from '../lib/calc'
 
@@ -27,11 +27,20 @@ export default function BarChart({
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [tip, setTip] = useState<TipState | null>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
+  const tipRef = useRef<HTMLDivElement>(null)
+  const [tipSize, setTipSize] = useState<{w:number; h:number}>({ w: 240, h: 80 })
 
   const selected = useMemo(
     () => rows.find(r => r.cement.id === selectedId) || null,
     [rows, selectedId]
   )
+
+  // Measure tooltip size whenever it opens/changes so we can clamp properly
+  useEffect(() => {
+    if (!tip || !tipRef.current) return
+    const r = tipRef.current.getBoundingClientRect()
+    if (r.width && r.height) setTipSize({ w: r.width, h: r.height })
+  }, [tip])
 
   if (!rows.length) return null
 
@@ -74,7 +83,6 @@ export default function BarChart({
     ? `Baseline (worst OPC): ${baselineLabel ?? '—'} · EF ${baselineEf.toFixed(2)} kg/kg`
     : 'Baseline: not available'
 
-  // Optional name split (we still rotate 45°)
   const twoLine = (name: string) => {
     if (name.length <= 14) return [name, '']
     const mid = Math.floor(name.length / 2)
@@ -150,41 +158,41 @@ export default function BarChart({
   }
   const hideTip = () => setTip(null)
 
-  // Estimate tooltip width for auto-flip/clamping (keep in sync with CSS max-width)
-  const TOOLTIP_W = 240   // px (safe estimate)
+  // Compute tooltip positioning with auto-flip & clamping (horizontal + vertical)
   const PAD = 8
-
-  // Compute tooltip positioning with auto-flip & clamping
   const tooltipStyle = (() => {
     if (!tip) return null
     const contW = wrapRef.current?.offsetWidth ?? 0
     const contH = wrapRef.current?.offsetHeight ?? 0
 
-    // Prefer right side of cursor
+    // Horizontal: prefer right, flip left if needed, clamp inside
     let left = tip.x + 12
-    // Flip left if overflowing right edge
-    if (left + TOOLTIP_W > contW - PAD) {
-      left = Math.max(PAD, tip.x - TOOLTIP_W - 12)
-    }
-    // Gentle clamp inside container
-    left = clamp(left, PAD, Math.max(PAD, contW - TOOLTIP_W - PAD))
+    if (left + tipSize.w > contW - PAD) left = tip.x - tipSize.w - 12
+    left = clamp(left, PAD, Math.max(PAD, contW - tipSize.w - PAD))
 
-    // Vertical: we place tooltip above the cursor (translateY(-100%))
-    // Clamp the anchor so final box stays in view reasonably.
-    let top = tip.y - 12
-    top = clamp(top, 24, contH - 24)
+    // Vertical: prefer ABOVE the cursor. If not enough room, place BELOW. Clamp both cases.
+    const aboveTop = tip.y - 12 - tipSize.h
+    const belowTop = tip.y + 12
+    let top: number
+    if (aboveTop < PAD && belowTop + tipSize.h <= contH - PAD) {
+      // Not enough room above; show below
+      top = clamp(belowTop, PAD, Math.max(PAD, contH - tipSize.h - PAD))
+    } else {
+      // Enough room above (or both would overflow; above is more readable)
+      top = clamp(aboveTop, PAD, Math.max(PAD, contH - tipSize.h - PAD))
+    }
 
     return {
       position: 'absolute' as const,
       left,
       top,
-      transform: 'translateY(-100%)',
       pointerEvents: 'none' as const,
     }
   })()
 
   return (
-    <div className="card">
+    // IMPORTANT: let this card overflow so the tooltip isn't clipped vertically
+    <div className="card" style={{ overflow: 'visible' }}>
       <h2 style={{ fontSize: 18, fontWeight: 600, marginTop: 0, marginBottom: 4 }}>
         Total Element CO₂e Comparison
       </h2>
@@ -275,9 +283,9 @@ export default function BarChart({
           </g>
         </svg>
 
-        {/* Custom tooltip with auto-flip & clamping */}
+        {/* Custom tooltip with auto-flip & clamping (horizontal & vertical) */}
         {tip?.show && tooltipStyle && (
-          <div className="chart-tip" style={tooltipStyle}>
+          <div ref={tipRef} className="chart-tip" style={tooltipStyle}>
             <div className="chart-tip__title">{tip.name}</div>
             <div className="chart-tip__rows">
               <div className="chart-tip__row">
