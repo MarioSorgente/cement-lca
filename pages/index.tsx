@@ -254,16 +254,6 @@ const Home: NextPage = () => {
         />
       </div>
 
-      <div className="card" style={{ marginTop: 12 }}>
-  <BarChart
-    rows={rowsSorted}
-    bestId={bestId}
-    opcBaselineId={opcBaselineId}
-    baselineEf={baselineEF}
-    baselineLabel={baselineLabel}
-  />
-</div>
-
       <CompareFab
         items={comparedItems}
         onOpen={() => setCmpOpen(true)}
