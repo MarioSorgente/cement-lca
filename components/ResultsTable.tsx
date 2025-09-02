@@ -5,30 +5,30 @@ import { formatNumber } from '../lib/calc'
 type Props = {
   rows: ResultRow[]
 
-  // Sorting
+  // sort
   sortKey: 'total' | 'a1a3' | 'ef' | 'clinker' | 'dosage'
   sortDir: 'asc' | 'desc'
-  onSortChange: (key: Props['sortKey']) => void
+  onSortChange: (k: Props['sortKey']) => void
 
-  // View & search
+  // filter/search
   view: 'all' | 'compatible'
   onViewChange: (v: Props['view']) => void
   search: string
   onSearchChange: (v: string) => void
 
-  // Compare controls
+  // compare
   compared: Set<string>
   onToggleCompare: (id: string) => void
 
-  // CSV export
+  // csv
   onExportCsv?: () => void
 
-  // Baseline
+  // baseline
   baselineId?: string
   baselineEf?: number
   baselineLabel?: string
 
-  // Legacy (unused but kept)
+  // legacy no-ops
   pageSize: number
   onPageSize: (n: number) => void
 }
@@ -58,15 +58,14 @@ function PillDelta({ pct, isBaseline }: { pct: number; isBaseline: boolean }) {
 
 export default function ResultsTable(props: Props) {
   const {
-    rows,
-    sortKey, sortDir, onSortChange,
-    view, onViewChange,
-    search, onSearchChange,
+    rows, sortKey, sortDir, onSortChange,
+    view, onViewChange, search, onSearchChange,
     compared, onToggleCompare,
     onExportCsv,
     baselineId,
   } = props
 
+  // filter/search
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     const passSearch = (r: ResultRow) => {
@@ -82,6 +81,7 @@ export default function ResultsTable(props: Props) {
     return rows.filter(r => passView(r) && passSearch(r))
   }, [rows, search, view])
 
+  // sorting
   const sorted = useMemo(() => {
     const get = (r: ResultRow) => {
       switch (sortKey) {
@@ -102,13 +102,6 @@ export default function ResultsTable(props: Props) {
 
   const visible = sorted
 
-  const worstNonBaselineId = useMemo(() => {
-    const pool = visible.filter(r => r.cement.id !== baselineId)
-    if (!pool.length) return undefined
-    const worst = pool.reduce((m, r) => (r.gwpReductionPct < m.gwpReductionPct ? r : m), pool[0])
-    return worst.cement.id
-  }, [visible, baselineId])
-
   const th = (label: string, unit: string | null, key?: Props['sortKey']) => (
     <th
       className={key ? 'th-sort th-center' : 'th-center'}
@@ -127,7 +120,7 @@ export default function ResultsTable(props: Props) {
 
   return (
     <div className="card">
-      {/* Toolbar */}
+      {/* toolbar */}
       <div className="toolbar-grid" style={{ gridTemplateColumns: '1fr 200px 120px' }}>
         <input
           className="input"
@@ -166,7 +159,7 @@ export default function ResultsTable(props: Props) {
                   <span className="th-unit small">kg/m³</span>
                 </span>
               </th>
-              {/* A4: cement-only formula */}
+              {/* A4 tooltip = cement-only formula */}
               <th className="th-center">
                 <span className="th-stack">
                   <span className="th-row">
@@ -188,14 +181,19 @@ export default function ResultsTable(props: Props) {
               <th className="th-center" aria-label="Compare column">Compare</th>
             </tr>
           </thead>
+
           <tbody>
             {visible.map((r) => {
-              const isBaseline = r.cement.id === baselineId
-              const rowTint = isBaseline ? 'row-baseline' : (r.gwpReductionPct >= 20 ? 'row-best' : '')
-              const inCompare = compared.has(r.cement.id)
+              const isBaseline = r.cement.id === props.baselineId
+              const tint =
+                isBaseline ? 'row-baseline'
+                : r.gwpReductionPct >= 20 ? 'row-best' : ''
+
+              const inCompare = props.compared.has(r.cement.id)
 
               return (
-                <tr key={r.cement.id} className={rowTint}>
+                <tr key={r.cement.id} className={tint}>
+                  {/* cement name + tags (with non-overlapping tag tooltips) */}
                   <td>
                     <div className="cell-title">
                       <div className="title">{r.cement.cement_type}</div>
@@ -233,7 +231,7 @@ export default function ResultsTable(props: Props) {
                       className={`cmp-tgl ${inCompare ? 'selected' : ''}`}
                       aria-pressed={inCompare}
                       aria-label={inCompare ? 'Remove from compare' : 'Add to compare'}
-                      onClick={() => onToggleCompare(r.cement.id)}
+                      onClick={() => props.onToggleCompare(r.cement.id)}
                     />
                   </td>
                 </tr>
