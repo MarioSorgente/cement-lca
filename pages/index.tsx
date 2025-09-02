@@ -180,7 +180,9 @@ const Home: NextPage = () => {
 
   return (
     <div className="container">
-      <h1 className="title">Cement LCA Comparison</h1>
+      <h1 className="title">Cement LCA Comparison
+      <img src="/favicon-32x32.png" alt="" style={{ width: 22, height: 22, marginLeft: 8, verticalAlign: 'middle' }} />
+      </h1>
 
       <Inputs
         inputs={inputs}
