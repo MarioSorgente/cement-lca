@@ -15,7 +15,6 @@ const STRENGTH_OPTIONS = [
 ]
 
 export default function Inputs({ state, onChange }: Props) {
-  const n = (v: string) => (v === '' ? '' : Number(v))
   const isPerCement = state.dosageMode === 'perCement'
 
   return (
@@ -25,14 +24,14 @@ export default function Inputs({ state, onChange }: Props) {
       </div>
 
       <div className="inputs-grid">
-        {/* Exposure class */}
+        {/* Exposure */}
         <div>
           <label className="label">
             Exposure class
             <span className="tooltip-wrapper">
-              <span className="tooltip-icon">i</span>
+              <span className="tooltip-icon" style={{ width: 14, height: 14, lineHeight: '14px', fontSize: 10 }}>i</span>
               <div className="tooltip-box tooltip-right">
-                Select the environmental exposure for this element (e.g., XC2).
+                Choose the environmental exposure for this element (e.g., XC2).
               </div>
             </span>
           </label>
@@ -41,9 +40,7 @@ export default function Inputs({ state, onChange }: Props) {
             value={state.exposureClass}
             onChange={(e) => onChange({ exposureClass: e.target.value })}
           >
-            {EXPOSURE_OPTIONS.map(x => (
-              <option key={x} value={x}>{x}</option>
-            ))}
+            {EXPOSURE_OPTIONS.map(x => <option key={x} value={x}>{x}</option>)}
           </select>
         </div>
 
@@ -52,7 +49,7 @@ export default function Inputs({ state, onChange }: Props) {
           <label className="label">
             Volume (m³)
             <span className="tooltip-wrapper">
-              <span className="tooltip-icon">i</span>
+              <span className="tooltip-icon" style={{ width: 14, height: 14, lineHeight: '14px', fontSize: 10 }}>i</span>
               <div className="tooltip-box tooltip-right">
                 Total concrete volume for the element.
               </div>
@@ -68,14 +65,15 @@ export default function Inputs({ state, onChange }: Props) {
           />
         </div>
 
-        {/* Transport & A4 */}
+        {/* Transport & A4 (boxed) */}
         <div>
           <label className="label">
             Transport &amp; A4
             <span className="tooltip-wrapper">
-              <span className="tooltip-icon">i</span>
+              <span className="tooltip-icon" style={{ width: 14, height: 14, lineHeight: '14px', fontSize: 10 }}>i</span>
               <div className="tooltip-box tooltip-right">
-                A4 for cement transport. If enabled, we compute A4cement = distance × transport&nbsp;EF (kg CO₂/kg·km) × dosage × volume.
+                A4 for cement transport (not ready-mix logistics).<br />
+                <strong>Formula:</strong> distance × transport EF (kg CO₂/kg·km) × dosage × volume.
               </div>
             </span>
           </label>
@@ -107,14 +105,14 @@ export default function Inputs({ state, onChange }: Props) {
           </div>
         </div>
 
-        {/* Dosage group */}
+        {/* Dosage (boxed) */}
         <div>
           <label className="label">
             Dosage
             <span className="tooltip-wrapper">
-              <span className="tooltip-icon">i</span>
+              <span className="tooltip-icon" style={{ width: 14, height: 14, lineHeight: '14px', fontSize: 10 }}>i</span>
               <div className="tooltip-box tooltip-right">
-                Choose a global dosage or switch to per-cement editing in the table/compare panel.
+                Use a global dosage or switch to per-cement editing in the table/compare panel.
               </div>
             </span>
           </label>
@@ -146,9 +144,9 @@ export default function Inputs({ state, onChange }: Props) {
                 <label className="label" style={{ marginBottom: 4 }}>
                   Concrete strength
                   <span className="tooltip-wrapper">
-                    <span className="tooltip-icon">i</span>
+                    <span className="tooltip-icon" style={{ width: 14, height: 14, lineHeight: '14px', fontSize: 10 }}>i</span>
                     <div className="tooltip-box tooltip-right">
-                      Nominal concrete strength class (UI only).
+                      UI-only field to annotate the design strength.
                     </div>
                   </span>
                 </label>
@@ -157,21 +155,13 @@ export default function Inputs({ state, onChange }: Props) {
                   value={state.concreteStrength ?? 'C25/30'}
                   onChange={(e) => onChange({ concreteStrength: e.target.value })}
                 >
-                  {STRENGTH_OPTIONS.map(x => (
-                    <option key={x} value={x}>{x}</option>
-                  ))}
+                  {STRENGTH_OPTIONS.map(x => <option key={x} value={x}>{x}</option>)}
                 </select>
               </div>
 
               <div>
                 <label className="label" style={{ marginBottom: 4 }}>
                   Global dosage (kg/m³)
-                  <span className="tooltip-wrapper">
-                    <span className="tooltip-icon">i</span>
-                    <div className="tooltip-box tooltip-right">
-                      Used when dosage mode is Global. If “Per cement” is selected, edit dosage in the table/compare panel.
-                    </div>
-                  </span>
                 </label>
                 <input
                   className="input"
