@@ -1,250 +1,280 @@
 // pages/index.tsx
-import React, { useMemo, useState, useCallback } from 'react'
-import type { NextPage } from 'next'
+import { useMemo, useState, useCallback } from 'react'
+import Head from 'next/head'
 
+// Data & types
+import cementsJson from '../public/data/cements.json'
+import { Cement, InputsState, ResultRow } from '../lib/types'
+
+// UI pieces
 import Inputs from '../components/Inputs'
 import ResultsTable from '../components/ResultsTable'
 import BarChart from '../components/BarChart'
+import CompareTray from '../components/CompareTray'
 import ComparePanel from '../components/ComparePanel'
-import CompareFab from '../components/CompareFab'
 
-import {
-  type InputsState,
-  type ResultRow,
-  type Cement,
-} from '../lib/types'
-
-import { formatNumber } from '../lib/calc'
-import { tagsForCement } from '../lib/tags'
+// Utils
 import { downloadCSV } from '../lib/download'
 
-import cementsData from '../public/data/cements.json'
+// ---------- helpers ----------
+function computeA4(cement: Cement, dosageUsedKgPerM3: number, inputs: InputsState): number {
+  if (!inputs.includeA4) return 0
+  const d = inputs.distanceKm ?? 0
+  const V = inputs.volumeM3 ?? 0
 
-
-// ---------- Helpers ----------
-function isOPC(c: Cement): boolean {
-  return (c.scms?.length ?? 0) === 0 || (c.cement_type || '').toUpperCase().startsWith('CEM I')
-}
-
-function buildRow(c: Cement, inputs: InputsState, perCementDosage: Record<string, number>, baselineEF: number): ResultRow {
-  const dosageUsed =
-    inputs.dosageMode === 'perCement'
-      ? Math.max(0, perCementDosage[c.id] ?? c.default_dosage_kg_per_m3 ?? inputs.globalDosage)
-      : Math.max(0, inputs.globalDosage)
-
-  const ef = Number(c.co2e_per_kg_binder_A1A3 ?? 0)
-  const co2ePerM3_A1A3 = dosageUsed * ef
-
-  const distanceKm = Number(inputs.distanceKm ?? 0)
-  const a4Ef = Number(c.transport_ef_kg_per_m3_km ?? 0) * (inputs.volumeM3 ?? 0)
-  const a4Transport = inputs.includeA4 ? distanceKm * a4Ef : 0
-
-  const totalElement = co2ePerM3_A1A3 * (inputs.volumeM3 ?? 0) + a4Transport
-
-  const exposureCompatible =
-    Array.isArray(c.compatible_exposure_classes) &&
-    c.compatible_exposure_classes.includes(inputs.exposureClass)
-
-  const gwpReductionPct = baselineEF > 0 ? ((baselineEF - ef) / baselineEF) * 100 : 0
-
-  return {
-    cement: c,
-    exposureCompatible,
-    dosageUsed,
-    co2ePerM3_A1A3,
-    a4Transport,
-    totalElement,
-    gwpReductionPct,
-    tags: tagsForCement(c),
+  // Prefer cement-mass EF if provided (kg CO2 per kg·km)
+  if (cement.transport_ef_kg_per_kg_km != null) {
+    return cement.transport_ef_kg_per_kg_km * d * (dosageUsedKgPerM3 * V)
   }
+
+  // Fallback: ready-mix logistics EF (kg CO2 per m3·km)
+  const ef_m3km = cement.transport_ef_kg_per_m3_km ?? 0
+  return ef_m3km * d * V
 }
 
-// Sorting helper
-function sortRows(
-  rows: ResultRow[],
-  key: 'cement' | 'strength' | 'clinker' | 'ef' | 'dosage' | 'a1a3' | 'a4' | 'total' | 'reduction',
-  dir: 'asc' | 'desc'
-) {
-  const mul = dir === 'asc' ? 1 : -1
-  const get = (r: ResultRow) => {
-    switch (key) {
-      case 'cement': return r.cement.cement_type
-      case 'strength': return r.cement.strength_class
-      case 'clinker': return r.cement.clinker_fraction
-      case 'ef': return r.cement.co2e_per_kg_binder_A1A3
-      case 'dosage': return r.dosageUsed
-      case 'a1a3': return r.co2ePerM3_A1A3
-      case 'a4': return r.a4Transport
-      case 'total': return r.totalElement
-      case 'reduction': return r.gwpReductionPct
-      default: return r.totalElement
+function tagsFrom(c: Cement): string[] {
+  // Prefer cement.tags if present (extended JSON), else derive
+  const anyC = c as any
+  if (Array.isArray(anyC.tags) && anyC.tags.length) return anyC.tags as string[]
+
+  const scms = c.scms ?? []
+  if (scms.length === 0) return ['OPC']
+  const codes = new Set(scms.map(s => (s.type || '').toUpperCase()))
+  const tags: string[] = []
+  if (codes.has('S')) tags.push('Slag')
+  if (codes.has('V')) tags.push('Fly ash')
+  if (codes.has('P')) tags.push('Pozzolana')
+  if (codes.has('LL')) tags.push('Limestone')
+  if (codes.has('CC')) tags.push('Calcined clay')
+  if (codes.size >= 2) tags.push('Composite')
+  return tags
+}
+
+function isOPC(c: Cement) {
+  // Treat as OPC if no SCMs or the type starts with CEM I
+  return (c.scms?.length ?? 0) === 0 || /^CEM\s*I\b/i.test(c.cement_type)
+}
+
+function rowsFromCements(
+  cements: Cement[],
+  inputs: InputsState,
+  perCementDosage: Record<string, number>
+): {
+  rows: ResultRow[]
+  baselineId?: string
+  baselineEf?: number
+  baselineLabel?: string
+  bestId?: string
+} {
+  // Baseline EF = worst OPC binder EF
+  const opc = cements.filter(isOPC)
+  const worstOPC = opc.length
+    ? opc.reduce((m, c) =>
+        c.co2e_per_kg_binder_A1A3 > m.co2e_per_kg_binder_A1A3 ? c : m, opc[0])
+    : undefined
+
+  const baselineId = worstOPC?.id
+  const baselineEf = worstOPC?.co2e_per_kg_binder_A1A3
+  const baselineLabel = worstOPC?.cement_type
+
+  const rows: ResultRow[] = cements.map((c) => {
+    const exposureCompatible =
+      !inputs.exposureClass ||
+      (Array.isArray(c.compatible_exposure_classes)
+        ? c.compatible_exposure_classes.includes(inputs.exposureClass)
+        : true)
+
+    const dosageUsed =
+      inputs.dosageMode === 'perCement'
+        ? (perCementDosage[c.id] ?? c.default_dosage_kg_per_m3 ?? inputs.globalDosage)
+        : inputs.globalDosage
+
+    const co2ePerM3_A1A3 = (c.co2e_per_kg_binder_A1A3 ?? 0) * (dosageUsed ?? 0)
+    const a4Transport = computeA4(c, dosageUsed ?? 0, inputs)
+    const totalElement = co2ePerM3_A1A3 * (inputs.volumeM3 ?? 0) + (inputs.includeA4 ? a4Transport : 0)
+
+    const gwpReductionPct =
+      baselineEf && baselineEf > 0
+        ? ((baselineEf - (c.co2e_per_kg_binder_A1A3 ?? 0)) / baselineEf) * 100
+        : 0
+
+    const r: ResultRow = {
+      cement: c,
+      exposureCompatible,
+      dosageUsed: dosageUsed ?? 0,
+      co2ePerM3_A1A3,
+      a4Transport,
+      totalElement,
+      gwpReductionPct,
+      tags: tagsFrom(c),
     }
-  }
-  return [...rows].sort((a,b) => {
-    const av = get(a); const bv = get(b)
-    if (typeof av === 'string' && typeof bv === 'string') return mul * av.localeCompare(bv)
-    return mul * ((Number(av) ?? 0) - (Number(bv) ?? 0))
+    return r
   })
+
+  const bestId =
+    rows.length ? rows.reduce((best, r) => (r.totalElement < best.totalElement ? r : best), rows[0]).cement.id : undefined
+
+  return { rows, baselineId, baselineEf, baselineLabel, bestId }
 }
 
-const Home: NextPage = () => {
-  // Defaults aligned to your screenshot
+// ---------- page ----------
+export default function Home() {
+  // Raw dataset
+  const cements = useMemo(() => (cementsJson as Cement[]), [])
+
+  // Inputs (match your Inputs.tsx layout)
   const [inputs, setInputs] = useState<InputsState>({
     exposureClass: 'XC2',
     volumeM3: 100,
     distanceKm: 0,
     includeA4: true,
-    dosageMode: 'global',
+    dosageMode: 'global',     // 'global' | 'perCement'
     globalDosage: 320,
     concreteStrength: 'C25/30',
   })
 
-  const [perCementDosage, setPerCementDosage] = useState<Record<string, number>>({})
-  const handlePerCementDosageChange = useCallback((cementId: string, val: number) => {
-    setPerCementDosage(prev => ({ ...prev, [cementId]: val }))
-  }, [])
+  // Per-cement overrides (used when dosageMode === 'perCement' and in Compare drawer)
+  const [perDosage, setPerDosage] = useState<Record<string, number>>({})
 
-  // Compute OPC baseline (worst EF among OPCs)
-  const { opcBaselineId, baselineEF, baselineLabel } = useMemo(() => {
-    const all = (cementsData as Cement[])
-    const opc = all.filter(isOPC)
-    if (!opc.length) return { opcBaselineId: undefined as string | undefined, baselineEF: 0, baselineLabel: undefined as string | undefined }
-    const worst = opc.reduce((m, c) =>
-      (c.co2e_per_kg_binder_A1A3 ?? 0) > (m.co2e_per_kg_binder_A1A3 ?? 0) ? c : m, opc[0])
-    return { opcBaselineId: worst.id, baselineEF: Number(worst.co2e_per_kg_binder_A1A3 ?? 0), baselineLabel: worst.cement_type }
-  }, [])
-
-  // Build rows using that baseline EF
-  const rowsAll = useMemo(() => {
-    return (cementsData as Cement[]).map(c => buildRow(c, inputs, perCementDosage, baselineEF))
-  }, [inputs, perCementDosage, baselineEF])
-
-  // Search / scope
+  // Table/view states
   const [search, setSearch] = useState('')
-  const [scope, setScope] = useState<'all' | 'compatible' | 'common'>('all')
-
-  const rowsFiltered = useMemo(() => {
-    let rs = rowsAll
-    if (scope === 'compatible') rs = rs.filter(r => r.exposureCompatible)
-    if (scope === 'common') rs = rs.filter(r => r.cement.is_common || (r.cement as any).common)
-    const s = search.trim().toLowerCase()
-    if (s) {
-      rs = rs.filter(r => {
-        const hay = `${r.cement.cement_type} ${r.cement.notes ?? ''} ${(r.tags ?? []).join(' ')}`.toLowerCase()
-        return hay.includes(s)
-      })
-    }
-    return rs
-  }, [rowsAll, scope, search])
-
-  // Sort & paginate
-  const [sortKey, setSortKey] = useState<'cement' | 'strength' | 'clinker' | 'ef' | 'dosage' | 'a1a3' | 'a4' | 'total' | 'reduction'>('total')
+  const [view, setView] = useState<'all' | 'compatible'>('all')
+  const [sortKey, setSortKey] = useState<'total' | 'a1a3' | 'ef' | 'clinker' | 'dosage'>('total')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
-  const [pageSize, setPageSize] = useState<number>(50)
 
-  const rowsSorted = useMemo(
-    () => sortRows(rowsFiltered, sortKey, sortDir),
-    [rowsFiltered, sortKey, sortDir]
+  // Compare
+  const [cmpOpen, setCmpOpen] = useState(false)
+  const [comparedIds, setComparedIds] = useState<Set<string>>(new Set())
+
+  // Computed rows + baseline
+  const { rows, baselineId, baselineEf, baselineLabel, bestId } = useMemo(
+    () => rowsFromCements(cements, inputs, perDosage),
+    [cements, inputs, perDosage]
   )
 
-  // Compare set
-  const [comparedIds, setComparedIds] = useState<string[]>([])
-  const comparedItems = useMemo(() => {
-    return comparedIds
-      .map(id => rowsSorted.find(r => r.cement.id === id))
-      .filter((r): r is ResultRow => Boolean(r))
-      .map(r => ({ id: r.cement.id, label: r.cement.cement_type }))
-  }, [comparedIds, rowsSorted])
-
-  const rowsById = useMemo(() => {
-    const m: Record<string, ResultRow> = {}
-    rowsSorted.forEach(r => { m[r.cement.id] = r })
-    return m
-  }, [rowsSorted])
-
-  const toggleCompare = useCallback((id: string) => {
-    setComparedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  // Handlers
+  const onInputs = useCallback((patch: Partial<InputsState>) => {
+    setInputs(prev => ({ ...prev, ...patch }))
   }, [])
 
-  const [cmpOpen, setCmpOpen] = useState(false)
+  const toggleCompare = (id: string) => {
+    setComparedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+  const clearCompared = () => setComparedIds(new Set())
 
-  // Export
-  const handleExport = useCallback(() => downloadCSV(rowsSorted, inputs), [rowsSorted, inputs])
+  const updatePerCementDosage = (id: string, value: number) => {
+    setPerDosage(prev => ({ ...prev, [id]: value }))
+  }
 
-  // Best id by total
-  const bestId = useMemo(() => {
-    return rowsSorted.length
-      ? rowsSorted.reduce((min, r) => r.totalElement < min.totalElement ? r : min, rowsSorted[0]).cement.id
-      : undefined
-  }, [rowsSorted])
+  const exportCsv = () => downloadCSV(rows, inputs)
+
+  // Compare items (for the tray badge)
+  const comparedItems = useMemo(
+    () => Array.from(comparedIds).map(id => {
+      const r = rows.find(x => x.cement.id === id)
+      return { id, label: r?.cement.cement_type ?? id }
+    }),
+    [comparedIds, rows]
+  )
+
+  // Sorting click: toggle asc/desc when same key
+  const onSortChange = (key: typeof sortKey) => {
+    if (key === sortKey) {
+      setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortKey(key)
+      setSortDir('asc')
+    }
+  }
 
   return (
-    <div className="container">
-      <h1 className="title">Cement LCA Comparison
-      <img src="/favicon-32x32.png" alt="" style={{ width: 22, height: 22, marginLeft: 8, verticalAlign: 'middle' }} />
-      </h1>
+    <>
+      <Head>
+        <title>Cement LCA Comparison Tool</title>
+      </Head>
 
-      <Inputs
-        inputs={inputs}
-        onChange={setInputs}
-        perCementDosage={perCementDosage}
-        onPerCementDosageChange={handlePerCementDosageChange}
-      />
+      <div className="container">
+        <h1 className="title">
+          <span>Cement LCA Comparison</span>
+          {/* If you copied the favicon into /public */}
+          <img
+            src="/favicon-32x32.png?v=2"
+            alt=""
+            width={22}
+            height={22}
+            loading="lazy"
+            decoding="async"
+            aria-hidden="true"
+            style={{ marginLeft: 8, verticalAlign: 'text-bottom' }}
+          />
+        </h1>
 
-      <ResultsTable
-        rows={rowsSorted}
-        pageSize={pageSize}
-        onPageSize={setPageSize}
-        sortKey={sortKey}
-        sortDir={sortDir}
-        onSortChange={(k) => {
-          if (k === sortKey) setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))
-          else { setSortKey(k); setSortDir('asc') }
-        }}
-        search={search}
-        onSearch={setSearch}
-        scope={scope}
-        onScope={setScope}
-        onExport={handleExport}
-        onRowClick={(id) => toggleCompare(id)}
-        selectedId={null}
-        bestId={bestId}
-        baselineId={opcBaselineId}
-        dosageMode={inputs.dosageMode}
-        perCementDosage={perCementDosage}
-        onPerCementDosageChange={handlePerCementDosageChange}
-        comparedIds={comparedIds}
-        onToggleCompare={toggleCompare}
-      />
+        {/* Inputs card */}
+        <div className="card">
+          <Inputs
+            state={inputs}
+            onChange={onInputs}
+          />
+        </div>
 
-      <div className="card" style={{ marginTop: 12 }}>
+        {/* Results table */}
+        <ResultsTable
+          rows={rows}
+          // sorting
+          sortKey={sortKey}
+          sortDir={sortDir}
+          onSortChange={onSortChange}
+          // view/search
+          view={view}
+          onViewChange={setView}
+          search={search}
+          onSearchChange={setSearch}
+          // compare
+          compared={comparedIds}
+          onToggleCompare={toggleCompare}
+          // CSV
+          onExportCsv={exportCsv}
+          // baseline
+          baselineId={baselineId}
+          baselineEf={baselineEf}
+          baselineLabel={baselineLabel}
+          // legacy props kept but unused inside ResultsTable (safe no-ops)
+          pageSize={999}
+          onPageSize={() => {}}
+        />
+
+        {/* Chart */}
         <BarChart
-          rows={rowsSorted}
+          rows={rows}
           bestId={bestId}
-          opcBaselineId={opcBaselineId}
-          baselineEf={baselineEF}
+          opcBaselineId={baselineId}
+          baselineEf={baselineEf}
           baselineLabel={baselineLabel}
         />
       </div>
 
-      <CompareFab
+      {/* Compare tray + drawer (always visible, even when 0 items) */}
+      <CompareTray
         items={comparedItems}
         onOpen={() => setCmpOpen(true)}
-        onClear={() => setComparedIds([])}
+        onClear={clearCompared}
       />
+
       <ComparePanel
         open={cmpOpen}
         onClose={() => setCmpOpen(false)}
-        comparedIds={comparedIds}
-        rowsById={rowsById}
-        inputs={inputs}
+        rows={rows}
+        selectedIds={Array.from(comparedIds)}
+        onToggle={toggleCompare}
+        onDosageChange={updatePerCementDosage}
+        catalog={rows.map(r => ({ id: r.cement.id, label: r.cement.cement_type }))}
+        baselineId={baselineId}
       />
-
-      <footer className="footer">
-        Data rows: {formatNumber(rowsSorted.length)} • Page size: {pageSize}
-      </footer>
-    </div>
+    </>
   )
 }
-
-export default Home
