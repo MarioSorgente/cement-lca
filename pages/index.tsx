@@ -225,7 +225,7 @@ const Home: NextPage = () => {
 
       <Inputs
         inputs={inputs}
-        onChange={handleInputsChange}  {/* ✅ analytics wrapper */}
+        onChange={handleInputsChange}
         perCementDosage={perCementDosage}
         onPerCementDosageChange={handlePerCementDosageChange}
       />
