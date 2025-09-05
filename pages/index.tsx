@@ -8,8 +8,6 @@ import BarChart from '../components/BarChart'
 import ComparePanel from '../components/ComparePanel'
 import CompareFab from '../components/CompareFab'
 
-
-
 import {
   type InputsState,
   type ResultRow,
@@ -21,6 +19,9 @@ import { tagsForCement } from '../lib/tags'
 import { downloadCSV } from '../lib/download'
 
 import cementsData from '../public/data/cements.json'
+
+// ✅ Custom event tracking
+import { track } from '@vercel/analytics'
 
 // ---------- Helpers ----------
 function isOPC(c: Cement): boolean {
@@ -51,7 +52,6 @@ function buildRow(c: Cement, inputs: InputsState, perCementDosage: Record<string
     : 0;
 
   const totalElement = co2ePerM3_A1A3 * volM3 + a4Transport;
-
 
   const exposureCompatible =
     Array.isArray(c.compatible_exposure_classes) &&
@@ -110,6 +110,23 @@ const Home: NextPage = () => {
     globalDosage: 320,
     concreteStrength: 'C25/30',
   })
+
+  // ✅ Wrap onChange to emit analytics for Design Inputs
+  const handleInputsChange = useCallback((next: InputsState) => {
+    const changes: Record<string, any> = {}
+    if (next.exposureClass !== inputs.exposureClass) changes.exposureClass = next.exposureClass
+    if (next.volumeM3 !== inputs.volumeM3) changes.volumeM3 = next.volumeM3
+    if (next.distanceKm !== inputs.distanceKm) changes.distanceKm = next.distanceKm
+    if (next.includeA4 !== inputs.includeA4) changes.includeA4 = next.includeA4
+    if (next.dosageMode !== inputs.dosageMode) changes.dosageMode = next.dosageMode
+    if (next.globalDosage !== inputs.globalDosage) changes.globalDosage = next.globalDosage
+    if (next.concreteStrength !== inputs.concreteStrength) changes.concreteStrength = next.concreteStrength
+
+    if (Object.keys(changes).length > 0) {
+      try { track('inputs_updated', changes) } catch {}
+    }
+    setInputs(next)
+  }, [inputs])
 
   const [perCementDosage, setPerCementDosage] = useState<Record<string, number>>({})
   const handlePerCementDosageChange = useCallback((cementId: string, val: number) => {
@@ -208,14 +225,22 @@ const Home: NextPage = () => {
 
       <Inputs
         inputs={inputs}
-        onChange={setInputs}
+        onChange={handleInputsChange}  {/* ✅ analytics wrapper */}
         perCementDosage={perCementDosage}
         onPerCementDosageChange={handlePerCementDosageChange}
       />
 
       {/* Header-level Compare button (always active) */}
       <div style={{ display:'flex', justifyContent:'flex-start', margin: '6px 0 4px 6px' }}>
-        <button className="btn" onClick={() => setCmpOpen(true)}>Compare</button>
+        <button
+          className="btn"
+          onClick={() => {
+            try { track('compare_opened', { comparedCount: comparedIds.length }) } catch {}
+            setCmpOpen(true)
+          }}
+        >
+          Compare
+        </button>
       </div>
 
       <ResultsTable
